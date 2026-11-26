@@ -40,9 +40,8 @@ jobs:
           VITE_SERVER_URL: ${{ vars.GAME_SERVER_URL }}
         run: npm run build
 
+      # 최초 1회: 저장소 Settings → Pages → Source 를 "GitHub Actions" 로 설정해야 함
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:

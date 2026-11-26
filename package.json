@@ -1,0 +1,22 @@
+{
+  "name": "bubble-arena-3d",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "node server/index.js",
+    "test:sim": "node tests/sim-test.mjs",
+    "test:net": "node tests/net-test.mjs",
+    "test:mech": "node tests/mechanics-test.mjs"
+  },
+  "dependencies": {
+    "three": "^0.170.0",
+    "ws": "^8.23.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
+  }
+}

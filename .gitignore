@@ -1,0 +1,11 @@
+# 의존성 / 빌드 결과
+node_modules/
+dist/
+
+# 로컬 도구 설정
+.claude/
+*.log
+.DS_Store
+Thumbs.db
+.env
+.env.*

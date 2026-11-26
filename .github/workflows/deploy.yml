@@ -1,0 +1,59 @@
+# main 브랜치에 Push 하면 테스트 → 빌드 → GitHub Pages 자동 배포
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Logic tests (맵 · 메커니즘 · 아이템)
+        run: |
+          npm run test:sim
+          npm run test:mech
+
+      - name: Build
+        env:
+          # 온라인 모드용 게임 서버 주소 (선택). 저장소 Settings → Variables 의 GAME_SERVER_URL 에 wss://... 로 지정
+          VITE_SERVER_URL: ${{ vars.GAME_SERVER_URL }}
+        run: npm run build
+
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

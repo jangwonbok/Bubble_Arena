@@ -1,6 +1,8 @@
 import { el, soundControls } from './dom.js';
 import { icon } from './icons.js';
 import { ITEM_DEFS } from '../systems/items/itemDefs.js';
+import { Fullscreen } from '../core/Fullscreen.js';
+import { Device } from '../core/Device.js';
 
 // 모든 화면에서 공용으로 여는 모달: 게임 방법 / 설정
 export class Modals {
@@ -17,7 +19,20 @@ export class Modals {
         el('button', { class: 'btn btn-primary', text: '확인', onclick: () => { click(); this.close(); } }),
       ]),
     ]);
-    for (const m of [this.howto, this.settings]) {
+    // iPhone Safari: 전체 화면 API 가 없으므로 "홈 화면에 추가" 안내
+    this.install = el('div', { class: 'modal hidden' }, [
+      el('div', { class: 'panel modal-panel install-panel' }, [
+        el('div', { class: 'modal-head' }, [icon('expand'), el('h2', { text: '전체 화면으로 플레이' })]),
+        el('p', { class: 'install-lead', text: 'iPhone Safari 는 웹페이지 전체 화면을 지원하지 않아요. 홈 화면에 추가하면 주소창 없이 앱처럼 전체 화면으로 플레이할 수 있어요.' }),
+        el('ol', { class: 'install-steps' }, [
+          el('li', {}, [el('span', { text: '아래 도구 막대의 ' }), el('b', {}, [icon('share'), el('span', { text: ' 공유' })]), el('span', { text: ' 버튼을 누르세요' })]),
+          el('li', {}, [el('b', { text: '‘홈 화면에 추가’' }), el('span', { text: ' 를 고르세요' })]),
+          el('li', {}, [el('span', { text: '홈 화면의 ' }), el('b', { text: 'Bubble Arena' }), el('span', { text: ' 아이콘으로 실행하면 전체 화면!' })]),
+        ]),
+        el('button', { class: 'btn btn-primary', text: '알겠어요', onclick: () => { click(); this.close(); } }),
+      ]),
+    ]);
+    for (const m of [this.howto, this.settings, this.install]) {
       m.addEventListener('pointerdown', (e) => {
         if (e.target === m) this.close();
       });
@@ -35,6 +50,7 @@ export class Modals {
   close() {
     this.howto.classList.add('hidden');
     this.settings.classList.add('hidden');
+    this.install.classList.add('hidden');
   }
 
   buildHowTo(click) {
@@ -67,6 +83,17 @@ export class Modals {
   }
 }
 
+/** 전체 화면 버튼 동작: 지원하면 전환, iPhone 이면 홈 화면 추가 안내 */
+export function fullscreenAction(game) {
+  game.audio.unlock();
+  game.audio.play('click');
+  if (Fullscreen.supported) Fullscreen.toggle();
+  else game.ui.modals.open('install');
+}
+
+/** 전체 화면 버튼을 보여 줄지 (터치 기기 + 아직 홈 화면 앱으로 실행 중이 아님) */
+export const showFullscreenButton = () => Device.touch && !Fullscreen.standalone && (Fullscreen.supported || Fullscreen.isIOS);
+
 /**
  * 우측 상단 원형 아이콘 버튼 묶음
  * items: ['settings', 'sound', 'help'] + { icon, label, onClick, kind }
@@ -95,6 +122,21 @@ export function topActions(game, items) {
       game.audio.onChange(sync);
       sync();
       btn.append(ico, label);
+      wrap.append(btn);
+      continue;
+    }
+    if (it === 'fullscreen') {
+      const btn = el('button', { class: 'ta-btn ta-fullscreen', 'aria-label': '전체 화면', onclick: () => fullscreenAction(game) });
+      const ico = el('span', { class: 'ta-ico' });
+      const sync = () => {
+        ico.innerHTML = '';
+        ico.append(icon(Fullscreen.active ? 'compress' : 'expand'));
+        btn.classList.toggle('hidden', !showFullscreenButton());
+      };
+      btn.append(ico, el('span', { class: 'ta-label', text: '전체 화면' }));
+      Fullscreen.onChange(sync);
+      Device.onChange(sync);
+      sync();
       wrap.append(btn);
       continue;
     }

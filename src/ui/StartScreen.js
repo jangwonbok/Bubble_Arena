@@ -27,7 +27,7 @@ export class StartScreen {
     };
 
     this.root = el('div', { class: 'screen start-screen' }, [
-      el('div', { class: 'top-bar' }, [this.profile, topActions(game, ['settings', 'sound', 'help'])]),
+      el('div', { class: 'top-bar' }, [this.profile, topActions(game, ['fullscreen', 'settings', 'sound', 'help'])]),
       el('div', { class: 'logo' }, [
         el('div', { class: 'logo-bubbles' }, [el('i'), el('i'), el('i'), el('i')]),
         el('h1', { class: 'logo-title' }, [el('span', { text: 'Bubble' }), el('span', { text: 'Arena' })]),

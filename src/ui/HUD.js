@@ -1,6 +1,9 @@
 import { el, avatar } from './dom.js';
 import { icon } from './icons.js';
 import { TouchControls } from './TouchControls.js';
+import { fullscreenAction, showFullscreenButton } from './Modals.js';
+import { Fullscreen } from '../core/Fullscreen.js';
+import { Device } from '../core/Device.js';
 import { CONFIG } from '../core/Config.js';
 import { STATE } from '../characters/Character.js';
 import { PERSONALITY_LABEL, MAP_ICON } from './components.js';
@@ -48,6 +51,15 @@ export class HUD {
         this.syncZoom();
       },
     });
+    this.fsBtn = el('button', { class: 'zoom-btn fs-btn', 'aria-label': '전체 화면', onclick: () => fullscreenAction(game) });
+    const syncFs = () => {
+      this.fsBtn.innerHTML = '';
+      this.fsBtn.append(icon(Fullscreen.active ? 'compress' : 'expand'));
+      this.fsBtn.classList.toggle('hidden', !showFullscreenButton());
+    };
+    Fullscreen.onChange(syncFs);
+    Device.onChange(syncFs);
+    syncFs();
     this.cardsBox = el('div', { class: 'cards' });
     this.mapChip = el('div', { class: 'map-chip' });
     this.netChip = el('div', { class: 'net-chip hidden' });
@@ -104,7 +116,7 @@ export class HUD {
           this.timerTag,
           el('div', { class: 'panel hud-timer' }, [icon('stopwatch', 'clock-ico'), this.timer]),
         ]),
-        el('div', { class: 'hud-right' }, [this.cardsBox, el('div', { class: 'hud-btns' }, [this.pauseBtn, this.zoomBtn])]),
+        el('div', { class: 'hud-right' }, [this.cardsBox, el('div', { class: 'hud-btns' }, [this.pauseBtn, this.zoomBtn, this.fsBtn])]),
       ]),
       el('div', { class: 'hud-bottom' }, [
         this.effectChips,

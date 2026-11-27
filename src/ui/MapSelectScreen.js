@@ -35,7 +35,7 @@ export class MapSelectScreen {
           el('button', { class: 'crumb-back', 'aria-label': '뒤로', onclick: back }, [icon('back')]),
           el('div', { class: 'crumb-trail' }, [el('span', { class: 'home-link', text: '홈', onclick: back }), el('span', { text: '›' }), this.crumbTitle]),
         ]),
-        topActions(game, ['settings', 'sound', 'help']),
+        topActions(game, ['fullscreen', 'settings', 'sound', 'help']),
       ]),
       el('div', { class: 'panel select-panel' }, [
         this.title,

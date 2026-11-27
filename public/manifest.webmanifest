@@ -1,0 +1,17 @@
+{
+  "name": "Bubble Arena 3D",
+  "short_name": "Bubble Arena",
+  "description": "물풍선으로 친구들을 가둬라! 최후의 1인이 되는 귀여운 아레나 배틀",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#7fd3ff",
+  "theme_color": "#7fd3ff",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

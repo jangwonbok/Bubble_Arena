@@ -37,6 +37,8 @@
 - 위 "(미커밋)" 항목들은 모두 2026-11-27 커밋 `225ef83` 로 GitHub Pages 배포 완료
 - 이후 배포: 배경음 엔진(메뉴/경기/남은 30초, 맵별 조·음색, 배경음·효과음 볼륨 분리), 휴대폰 확대·추적 카메라(`SceneManager.computeZoom`, HUD 확대 버튼),
   아이템 획득 알림을 상단 작은 칩으로 (`HUD.itemNotice`, ×N 합치기·최대 2개)
+- 이후 배포: 모바일 전체 화면(`src/core/Fullscreen.js`, iPhone 은 홈 화면 추가 안내 + `public/manifest.webmanifest`·`public/icons/`),
+  세로 화면 위아래 추적 카메라(`solveLookZ` 로 맵이 상단 HUD~조작 버튼 사이에 오도록), 가로 화면 좌우 데드존, 세로 터치 HUD 한 줄 배치
 
 ## 구조 요약
 - 공용 로직(서버와 공유, Three.js 없음): `src/core/MatchSimulation.js`, `src/systems/*`, `src/map/MapGrid.js`, `src/maps/*`, `src/characters/Character.js`, `src/net/protocol.js`

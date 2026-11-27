@@ -131,6 +131,13 @@ body.touch .touch-controls { display: block; }
 .tc-count { position: absolute; right: -6px; top: -6px; padding: 1px 6px; font-size: 12px; background: #ff5a6a; border: 2px solid #fff; border-radius: 999px; }
 .tc-btn.pressed { transform: translateY(4px) scale(0.95); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25); }
 
+/* 전체 화면 안내 (iPhone: 홈 화면에 추가) */
+.install-panel { max-width: 420px; align-items: stretch; }
+.install-lead { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+.install-steps { margin: 4px 0; padding: 12px 14px 12px 32px; border-radius: 14px; background: #f2f7ff; font-size: 15px; line-height: 1.8; color: #26365e; }
+.install-steps b { display: inline-flex; align-items: center; gap: 2px; color: #2f6ee8; }
+.install-steps .ico { font-size: 18px; vertical-align: -3px; }
+
 /* 확대 / 전체 보기 버튼 (일시정지 버튼 아래) */
 .hud-btns { display: flex; flex-direction: column; gap: 8px; align-items: center; }
 .zoom-btn {
@@ -327,10 +334,117 @@ body.touch .effect-chips { bottom: calc(214px + var(--sa-b)); }
   body.touch .item-lane { top: calc(138px + var(--sa-t)); }
   .item-chip { height: 24px; padding: 0 8px 0 2px; font-size: 11px; gap: 2px; box-shadow: 0 2px 6px rgba(30, 70, 140, 0.18); }
   .item-chip img { width: 20px; height: 20px; }
-  /* 터치(세로): 아래는 조이스틱·버튼 자리 → 능력치/효과는 위쪽 참가자 줄 아래로 */
-  body.touch .hud-bottom .player-stats { position: fixed; top: calc(100px + var(--sa-t)); bottom: auto; }
-  body.touch .effect-chips { position: fixed; top: calc(142px + var(--sa-t)); bottom: auto; }
-  body.touch .feed { top: calc(172px + var(--sa-t)); }
+  /* ---- 터치(세로): 상단은 2줄(점수·타이머·버튼 / 참가자 얼굴)만, 나머지는 가장자리로 ---- */
+  /* 1줄: 점수 | 타이머 | 일시정지·확대·전체화면 (버튼 3개가 타이머와 겹치지 않게) */
+  body.touch .hud-timer-wrap { transform: translateX(-50%) scale(0.66); }
+  body.touch .pause-btn, body.touch .zoom-btn { width: 36px; height: 36px; font-size: 18px; border-width: 2px; }
+  body.touch .pause-btn span { height: 14px; width: 4px; }
+  body.touch .hud-btns { gap: 5px; }
+  body.touch .hud-score { padding: 4px 8px 4px 6px; gap: 6px; }
+  body.touch .hs-ico { font-size: 18px; }
+  body.touch .score-value, body.touch .alive-value { font-size: 17px; }
+  /* 참가자: 얼굴 + 점수만 (이름 숨김) → 한 줄이 얇아짐 */
+  body.touch .cards { top: 50px; justify-content: center; gap: 6px; }
+  body.touch .char-card { flex: 0 0 auto; padding: 2px 8px 2px 2px; gap: 4px; border-radius: 999px; }
+  body.touch .char-card .avatar { width: 24px !important; height: 24px !important; }
+  body.touch .card-name { display: none; }
+  body.touch .card-top { display: none; }
+  body.touch .card-score { font-size: 12px; }
+  body.touch .char-card .trap-bar { height: 3px; }
+  /* 능력치: 물풍선 버튼 위 오른쪽에 작게 세로로 */
+  body.touch .hud-bottom .player-stats {
+    position: fixed;
+    top: auto;
+    left: auto;
+    right: calc(10px + var(--sa-r));
+    bottom: calc(136px + var(--sa-b));
+    transform: none;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 5px 8px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.72);
+  }
+  body.touch .stat-img { width: 22px; height: 22px; margin: -3px -2px; }
+  body.touch .stat-val { font-size: 12px; }
+  /* 효과(방어막 등): 조이스틱 위 왼쪽 */
+  body.touch .effect-chips {
+    position: fixed;
+    top: auto;
+    left: calc(10px + var(--sa-l));
+    bottom: calc(186px + var(--sa-b));
+    transform: none;
+    width: auto;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  /* ===== 상단 HUD 한 줄: [점수] [타이머] [참가자 얼굴 ×4] [버튼 ×3] ===== */
+  body.touch .hud-top { display: flex; align-items: center; gap: 5px; }
+  body.touch .hud-left { flex: none; order: 0; }
+  body.touch .hud-score { padding: 3px 9px 3px 6px; gap: 4px; border-radius: 999px; }
+  body.touch .hud-score .divider,
+  body.touch .hud-score .hs-block:last-child { display: none; } /* 생존 수는 회색으로 바뀌는 얼굴로 확인 */
+  body.touch .hs-ico { font-size: 17px; }
+  body.touch .score-value { font-size: 16px; }
+  body.touch .hud-timer-wrap { position: static; transform: none; order: 1; flex: none; }
+  body.touch .timer-tag { display: none; }
+  body.touch .hud-timer { gap: 4px; padding: 3px 10px 3px 6px; border-width: 2px; box-shadow: 0 3px 0 #2a5fc8, 0 6px 12px rgba(40, 90, 220, 0.3); }
+  body.touch .clock-ico { font-size: 16px; }
+  body.touch .timer-value { font-size: 17px; min-width: 0; }
+  body.touch .hud-right { order: 2; flex: 1; min-width: 0; display: flex; align-items: center; gap: 5px; }
+  /* 참가자: 얼굴 동그라미 + 아래 점수 배지 */
+  body.touch .cards { position: static; flex: 1; min-width: 0; display: flex; justify-content: center; gap: 3px; }
+  body.touch .char-card {
+    position: relative;
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+    border-radius: 50%;
+    overflow: visible;
+    box-shadow: 0 2px 0 color-mix(in srgb, var(--c) 70%, black), 0 3px 8px rgba(20, 60, 130, 0.25);
+  }
+  body.touch .char-card .avatar { width: 26px !important; height: 26px !important; border-width: 2px; }
+  body.touch .char-card .card-info { position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); }
+  body.touch .card-bottom { margin: 0; }
+  body.touch .card-score {
+    margin: 0;
+    padding: 0 4px;
+    font-size: 9px;
+    line-height: 13px;
+    color: color-mix(in srgb, var(--c) 75%, black);
+    background: #fff;
+    border-radius: 999px;
+    text-shadow: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+  body.touch .char-card.me { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #ffc531; }
+  body.touch .char-card .trap-bar { left: 3px; right: 3px; bottom: 2px; height: 3px; border-radius: 2px; overflow: hidden; }
+  body.touch .char-card[data-state='trapped'] { animation: shake 0.3s infinite; }
+  body.touch .hud-btns { flex: none; gap: 4px; }
+  body.touch .pause-btn, body.touch .zoom-btn { width: 32px; height: 32px; font-size: 16px; }
+  body.touch .pause-btn span { height: 12px; width: 4px; }
+
+  /* 아이템 칩 / 이벤트 알림: 한 줄 HUD 바로 아래, 작게 */
+  body.touch .item-lane { top: calc(52px + var(--sa-t)); }
+  body.touch .feed { top: calc(80px + var(--sa-t)); max-width: 70vw; }
+  body.touch .toast { font-size: 11px; padding: 3px 9px; }
+}
+
+/* 아주 좁은 휴대폰 (≤ 370px): 한 줄 HUD 가 넘치지 않도록 한 단계 더 작게 */
+@media (max-width: 370px) {
+  body.touch .hud-top { gap: 3px; left: calc(5px + var(--sa-l)); right: calc(5px + var(--sa-r)); }
+  body.touch .hud-score { padding: 3px 7px 3px 4px; }
+  body.touch .hud-timer { padding: 3px 8px 3px 5px; }
+  body.touch .timer-value { font-size: 16px; }
+  body.touch .cards { gap: 2px; }
+  body.touch .char-card { width: 27px; height: 27px; }
+  body.touch .char-card .avatar { width: 23px !important; height: 23px !important; }
+  body.touch .hud-btns { gap: 3px; }
+  body.touch .pause-btn, body.touch .zoom-btn { width: 30px; height: 30px; font-size: 15px; }
 }
 
 /* ---------------- 가로 휴대폰 (높이 ≤ 500px) ---------------- */

@@ -150,7 +150,10 @@ export class SceneManager {
     this.zoomed = this.zoomAvailable && (saved === null ? phone : saved === '1');
     const vHalf = THREE.MathUtils.degToRad(this.camera.fov / 2);
     const hHalf = Math.atan(Math.tan(vHalf) * aspect);
-    const SIN_ELEV = 0.79; // 카메라 내려다보는 각(≈52°) → 바닥에서 세로 범위가 늘어나는 비율
+    // 확대 시점은 조금 더 위에서 내려다봄(약 60°) → 높은 블록·기둥에 캐릭터/물풍선이 덜 가려짐
+    const ELEV = THREE.MathUtils.degToRad(60);
+    this.zoomDir = new THREE.Vector3(0, Math.sin(ELEV), Math.cos(ELEV));
+    const SIN_ELEV = Math.sin(ELEV); // 바닥에서 세로 범위가 늘어나는 비율
     const VIEW = portrait ? 10 : 12; // 화면에 보일 칸 수 (짧은 쪽 기준, 가로 화면은 원근감 때문에 조금 더 넓게)
     const distW = VIEW / 2 / Math.tan(hHalf);
     const distH = ((VIEW / 2) * SIN_ELEV) / Math.tan(vHalf);
@@ -158,9 +161,46 @@ export class SceneManager {
     // 가장자리에서도 캐릭터가 화면 구석 UI(점수판·조이스틱) 밑에 숨지 않도록 맵 밖으로 약 2칸까지는 따라감
     const R = CONFIG.MAP_SIZE / 2 + 2.4;
     this.clampX = Math.max(0, R - this.zoomDist * Math.tan(hHalf));
-    this.clampZ = Math.max(0, R - (this.zoomDist * Math.tan(vHalf)) / SIN_ELEV);
-    // 세로 화면: 캐릭터를 화면 중앙보다 약간 위에 (아래쪽은 조이스틱 자리)
-    this.zoomOffsetZ = portrait && Device.touch ? 1.4 : 0.3;
+    const cz = Math.max(0, R - (this.zoomDist * Math.tan(vHalf)) / SIN_ELEV);
+    this.zMin = -cz;
+    this.zMax = cz;
+    if (portrait) {
+      // 세로 화면: 위아래로도 따라가되, 맵 아래 끝이 조작 버튼 줄(화면 72%)보다 위로 올라오거나
+      // 위 끝이 상단 정보(한 줄 HUD, 화면 약 7%)보다 아래로 내려오지 않게 → 캐릭터는 가운데 띠, 빈 여백은 최소
+      const edge = CONFIG.MAP_SIZE / 2 + 0.2;
+      this.zMax = this.solveLookZ(edge, Device.touch ? 0.72 : 0.9);
+      this.zMin = this.solveLookZ(-edge, Device.touch ? 0.07 : 0.13);
+      if (this.zMin > this.zMax) this.zMin = this.zMax = (this.zMin + this.zMax) / 2;
+    }
+    // 가로 화면: 좌우 아래 구석이 조이스틱·물풍선 버튼 → 캐릭터가 화면 가운데 약 45% 안에 머물도록
+    // 데드존 방식으로 좌우를 따라감 (가운데에서는 카메라가 가만히 있어 화면이 덜 흔들림)
+    this.deadBand = portrait ? 0 : this.zoomDist * Math.tan(hHalf) * 0.45;
+    if (!portrait) this.clampX = R;
+    // 캐릭터를 화면 중앙보다 약간 위에 (아래쪽은 조이스틱·물풍선 버튼 자리)
+    this.zoomOffsetZ = portrait && Device.touch ? 1.2 : Device.touch ? 0.8 : 0.3;
+  }
+
+  /** 월드 z 위치(worldZ)가 화면 세로 비율 screenY(0=위, 1=아래)에 오도록 하는 카메라 주시점 z (이분 탐색) */
+  solveLookZ(worldZ, screenY) {
+    const cam = this.camera.clone();
+    const look = new THREE.Vector3();
+    const p = new THREE.Vector3();
+    const yAt = (lz) => {
+      look.set(0, 0, lz);
+      cam.position.copy(look).addScaledVector(this.zoomDir, this.zoomDist);
+      cam.lookAt(look);
+      cam.updateMatrixWorld();
+      p.set(0, 0, worldZ).project(cam);
+      return (1 - p.y) / 2;
+    };
+    let lo = -30;
+    let hi = 30; // lookZ 가 커질수록 같은 지점이 화면 위로 올라감 (y 감소)
+    for (let i = 0; i < 40; i++) {
+      const mid = (lo + hi) / 2;
+      if (yAt(mid) > screenY) lo = mid;
+      else hi = mid;
+    }
+    return (lo + hi) / 2;
   }
 
   setZoom(on) {
@@ -197,12 +237,18 @@ export class SceneManager {
       if (this.zoomed && this.followPos) {
         // 확대: 캐릭터를 부드럽게 따라감 (가장자리에서는 멈춤)
         const f = this.followPos;
+        let fx = f.x;
+        if (this.deadBand) {
+          // 데드존: 캐릭터가 가운데 띠를 벗어날 때만 카메라가 옆으로 이동
+          this.camX = THREE.MathUtils.clamp(this.camX ?? 0, f.x - this.deadBand, f.x + this.deadBand);
+          fx = this.camX;
+        }
         this.desiredLook.set(
-          THREE.MathUtils.clamp(f.x, -this.clampX, this.clampX),
+          THREE.MathUtils.clamp(fx, -this.clampX, this.clampX),
           0,
-          THREE.MathUtils.clamp(f.z, -this.clampZ, this.clampZ) + this.zoomOffsetZ,
+          THREE.MathUtils.clamp(f.z + this.zoomOffsetZ, this.zMin, this.zMax),
         );
-        this.desiredPos.copy(this.desiredLook).addScaledVector(this.camDir, this.zoomDist);
+        this.desiredPos.copy(this.desiredLook).addScaledVector(this.zoomDir, this.zoomDist);
       } else {
         this.desiredLook.copy(this.camTarget);
         this.desiredPos.copy(this.gamePos);

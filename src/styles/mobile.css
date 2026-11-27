@@ -162,7 +162,7 @@ body.touch .touch-controls { display: block; }
 }
 .ib-close { flex: none; width: 28px; height: 28px; border: none; border-radius: 50%; background: #eef3fb; color: #7c8aa8; font-size: 13px; cursor: pointer; }
 .install-banner.hidden { display: none !important; }
-@media (max-height: 500px) and (orientation: landscape) {
+@media (max-height: 600px) and (orientation: landscape) {
   .install-banner { padding: 4px 6px 4px 10px; border-radius: 12px; }
   .ib-text { font-size: 12px; }
   .ib-btn { padding: 4px 12px; font-size: 13px; }
@@ -485,8 +485,8 @@ body.touch .effect-chips { bottom: calc(214px + var(--sa-b)); }
   body.touch .pause-btn, body.touch .zoom-btn { width: 30px; height: 30px; font-size: 15px; }
 }
 
-/* ---------------- 가로 휴대폰 (높이 ≤ 500px) ---------------- */
-@media (max-height: 500px) and (orientation: landscape) {
+/* ---------------- 가로 휴대폰 (높이 ≤ 600px, 큰 휴대폰 포함) ---------------- */
+@media (max-height: 600px) and (orientation: landscape) {
   .top-bar { top: calc(6px + var(--sa-t)); left: calc(10px + var(--sa-l)); right: calc(10px + var(--sa-r)); }
   .ta-label { display: none; }
   .ta-ico { width: 38px; height: 38px; font-size: 19px; }
@@ -588,4 +588,65 @@ body.touch .effect-chips { bottom: calc(214px + var(--sa-b)); }
   .pause-screen .modal-panel > h3 { grid-column: 2; grid-row: 2; margin: 0; }
   .pause-screen .sound-controls { grid-column: 2; grid-row: 3 / span 3; }
   .result-title { font-size: 44px; }
+
+  /* ===== 터치 가로: 상단 한 줄 [점수] [능력치] ··· [타이머] ··· [참가자 얼굴 ×4] [버튼] =====
+     이름이 적힌 큰 참가자 카드(이름표)가 맵 오른쪽을 가리던 문제 → 얼굴 동그라미 + 점수 배지로 */
+  body.touch .hud-top { display: flex; align-items: center; gap: 6px; top: calc(6px + var(--sa-t)); }
+  body.touch .hud-left { flex: none; }
+  body.touch .hud-score { padding: 3px 10px 3px 6px; gap: 5px; border-radius: 999px; }
+  body.touch .hud-score .divider,
+  body.touch .hud-score .hs-block:last-child { display: none; }
+  body.touch .hs-ico { font-size: 17px; }
+  body.touch .score-value { font-size: 16px; }
+  body.touch .hud-timer-wrap { top: -2px; transform: translateX(-50%) scale(0.6); }
+  body.touch .timer-tag { display: none; }
+  body.touch .hud-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  body.touch .cards { flex-direction: row; gap: 4px; }
+  body.touch .char-card {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+    border-radius: 50%;
+    overflow: visible;
+    box-shadow: 0 2px 0 color-mix(in srgb, var(--c) 70%, black), 0 3px 8px rgba(20, 60, 130, 0.25);
+  }
+  body.touch .char-card .avatar { width: 28px !important; height: 28px !important; border-width: 2px; }
+  body.touch .card-top { display: none; }
+  body.touch .char-card .card-info { position: absolute; left: 50%; bottom: -9px; transform: translateX(-50%); }
+  body.touch .card-bottom { margin: 0; }
+  body.touch .card-score {
+    margin: 0;
+    padding: 0 4px;
+    font-size: 9px;
+    line-height: 13px;
+    color: color-mix(in srgb, var(--c) 75%, black);
+    background: #fff;
+    border-radius: 999px;
+    text-shadow: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+  body.touch .char-card.me { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #ffc531; }
+  body.touch .char-card .trap-bar { left: 3px; right: 3px; bottom: 2px; height: 3px; border-radius: 2px; overflow: hidden; }
+  body.touch .hud-btns { flex-direction: row; gap: 5px; }
+  body.touch .pause-btn, body.touch .zoom-btn { width: 34px; height: 34px; font-size: 17px; border-width: 2px; }
+  body.touch .pause-btn span { height: 13px; width: 4px; }
+  /* 능력치: 점수 옆 같은 줄에 가로로 작게 */
+  body.touch .hud-bottom .player-stats {
+    position: fixed;
+    top: calc(6px + var(--sa-t));
+    left: calc(84px + var(--sa-l));
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 12px;
+    border-radius: 999px;
+  }
+  body.touch .stat-img { width: 22px; height: 22px; }
+  body.touch .stat-val { font-size: 13px; }
+  /* 아이템 칩·효과: 한 줄 HUD 바로 아래 가운데 / 왼쪽 */
+  body.touch .item-lane { top: calc(46px + var(--sa-t)); left: 50%; transform: translateX(-50%); flex-direction: row; }
+  body.touch .effect-chips { position: fixed; top: calc(46px + var(--sa-t)); bottom: auto; left: calc(8px + var(--sa-l)); transform: none; width: auto; }
 }

@@ -41,6 +41,8 @@
   세로 화면 위아래 추적 카메라(`solveLookZ` 로 맵이 상단 HUD~조작 버튼 사이에 오도록), 가로 화면 좌우 데드존, 세로 터치 HUD 한 줄 배치
 - 이후 배포: 모바일 자동 전체 화면(`Fullscreen.autoEnter`, 사용자 제스처 때만 가능), 앱 설치 배너(`Install`, beforeinstallprompt),
   서비스 워커 `public/sw.js`(캐시 없음, 설치 조건용 — 배포 빌드에서만 등록), 맵별 theme-color. iPhone 은 API 미지원 → 홈 화면 추가 안내
+- 이후 배포: 휴대폰 가로 기준을 높이 ≤600px 로 확대 + 터치 가로 HUD 한 줄(참가자 이름표 카드 → 얼굴+점수 배지),
+  세로 확대 8칸 + 위아래 데드존 추적(`vBand`, 화면 20~70%), 캔버스 크기를 #game-root(100dvh) 기준 + visualViewport 변화 대응
 
 ## 구조 요약
 - 공용 로직(서버와 공유, Three.js 없음): `src/core/MatchSimulation.js`, `src/systems/*`, `src/map/MapGrid.js`, `src/maps/*`, `src/characters/Character.js`, `src/net/protocol.js`

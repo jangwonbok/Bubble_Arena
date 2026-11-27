@@ -172,7 +172,7 @@ export class HUD {
     const t = el('div', { class: `toast ${kind}`, html });
     this.feed.prepend(t);
     // 휴대폰은 게임 화면을 덜 가리도록 최대 3개
-    const max = window.innerWidth <= 600 || window.innerHeight <= 500 ? 3 : 5;
+    const max = window.innerWidth <= 600 || window.innerHeight <= 600 ? 3 : 5;
     while (this.feed.children.length > max) this.feed.lastChild.remove();
     setTimeout(() => t.classList.add('out'), 2600);
     setTimeout(() => t.remove(), 3100);

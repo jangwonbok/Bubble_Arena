@@ -38,6 +38,16 @@ export class SceneManager {
     window.addEventListener('resize', this.onResize);
     // 화면 회전: 일부 모바일 브라우저는 회전 직후 크기를 늦게 알려 줌 → 한 번 더 맞춤
     window.addEventListener('orientationchange', () => setTimeout(this.onResize, 250));
+    // 모바일 브라우저 주소창·하단 툴바가 나타나고 사라질 때 보이는 높이가 바뀜 → 화면·카메라 다시 맞춤
+    let vvPending = false;
+    window.visualViewport?.addEventListener('resize', () => {
+      if (vvPending) return;
+      vvPending = true;
+      requestAnimationFrame(() => {
+        vvPending = false;
+        this.onResize();
+      });
+    });
     Device.onChange(this.onResize);
     this.onResize();
   }
@@ -109,8 +119,10 @@ export class SceneManager {
   }
 
   onResize() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+    // 실제 게임 영역(#game-root, 100dvh) 크기 기준 → 주소창/툴바 변화와 UI 배치가 항상 일치
+    const box = this.renderer.domElement.parentElement;
+    const w = box?.clientWidth || window.innerWidth;
+    const h = box?.clientHeight || window.innerHeight;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.maxPixelRatio));
     this.renderer.setSize(w, h, false);
     const aspect = w / h;
@@ -154,7 +166,10 @@ export class SceneManager {
     const ELEV = THREE.MathUtils.degToRad(60);
     this.zoomDir = new THREE.Vector3(0, Math.sin(ELEV), Math.cos(ELEV));
     const SIN_ELEV = Math.sin(ELEV); // 바닥에서 세로 범위가 늘어나는 비율
-    const VIEW = portrait ? 10 : 12; // 화면에 보일 칸 수 (짧은 쪽 기준, 가로 화면은 원근감 때문에 조금 더 넓게)
+    // 화면에 보일 칸 수 (짧은 쪽 기준).
+    // 세로: 정사각형 맵(17칸)이 세로 화면 높이를 채우려면 가로 약 8칸 → 캐릭터도 크게 보임 (빈 아래 여백 제거)
+    // 가로: 원근감 때문에 조금 더 넓게 12칸
+    const VIEW = portrait ? 8 : 12;
     const distW = VIEW / 2 / Math.tan(hHalf);
     const distH = ((VIEW / 2) * SIN_ELEV) / Math.tan(vHalf);
     this.zoomDist = Math.min(overviewDist, Math.max(distW, distH));
@@ -164,13 +179,22 @@ export class SceneManager {
     const cz = Math.max(0, R - (this.zoomDist * Math.tan(vHalf)) / SIN_ELEV);
     this.zMin = -cz;
     this.zMax = cz;
+    this.vBand = null;
     if (portrait) {
-      // 세로 화면: 위아래로도 따라가되, 맵 아래 끝이 조작 버튼 줄(화면 72%)보다 위로 올라오거나
-      // 위 끝이 상단 정보(한 줄 HUD, 화면 약 7%)보다 아래로 내려오지 않게 → 캐릭터는 가운데 띠, 빈 여백은 최소
+      // 세로 화면 위아래 추적:
+      //  1) 맵 범위: 위 끝은 상단 한 줄 HUD(7%) 아래로, 아래 끝은 화면 맨 아래(100%)까지 → 화면 높이를 꽉 채움
+      //  2) 캐릭터 띠(데드존): 화면 높이 20%~60% 안에 있도록 → 아래 조이스틱·물풍선 버튼에 가려지지 않음
+      //  둘이 충돌하면(맵 가장자리) 캐릭터가 보이는 쪽을 우선
       const edge = CONFIG.MAP_SIZE / 2 + 0.2;
-      this.zMax = this.solveLookZ(edge, Device.touch ? 0.72 : 0.9);
-      this.zMin = this.solveLookZ(-edge, Device.touch ? 0.07 : 0.13);
-      if (this.zMin > this.zMax) this.zMin = this.zMax = (this.zMin + this.zMax) / 2;
+      const a = this.solveLookZ(-edge, Device.touch ? 0.07 : 0.1); // 이보다 작으면 위쪽이 빔
+      const b = this.solveLookZ(edge, 1.0); // 이보다 크면 아래쪽이 빔
+      this.zMin = Math.min(a, b);
+      this.zMax = Math.max(a, b);
+      // 세로에서는 좌우 추적으로 캐릭터가 항상 가로 가운데(조이스틱과 물풍선 버튼 사이)에 있으므로
+      // 아래로 화면 70% 까지 내려와도 조작 버튼에 가려지지 않음 → 맵 아래 끝에서도 빈 공간이 적음
+      this.vBand = Device.touch
+        ? { lo: this.solveLookZ(0, 0.7), hi: this.solveLookZ(0, 0.2) } // 캐릭터 기준 주시점 허용 범위
+        : null;
     }
     // 가로 화면: 좌우 아래 구석이 조이스틱·물풍선 버튼 → 캐릭터가 화면 가운데 약 45% 안에 머물도록
     // 데드존 방식으로 좌우를 따라감 (가운데에서는 카메라가 가만히 있어 화면이 덜 흔들림)
@@ -243,11 +267,16 @@ export class SceneManager {
           this.camX = THREE.MathUtils.clamp(this.camX ?? 0, f.x - this.deadBand, f.x + this.deadBand);
           fx = this.camX;
         }
-        this.desiredLook.set(
-          THREE.MathUtils.clamp(fx, -this.clampX, this.clampX),
-          0,
-          THREE.MathUtils.clamp(f.z + this.zoomOffsetZ, this.zMin, this.zMax),
-        );
+        let lz;
+        if (this.vBand) {
+          // 세로: 데드존 추적 → 맵이 화면을 채우는 범위로 제한 → 그래도 캐릭터는 반드시 띠 안에
+          this.camZ = THREE.MathUtils.clamp(this.camZ ?? f.z, f.z + this.vBand.lo, f.z + this.vBand.hi);
+          lz = THREE.MathUtils.clamp(this.camZ, this.zMin, this.zMax);
+          lz = THREE.MathUtils.clamp(lz, f.z + this.vBand.lo, f.z + this.vBand.hi);
+        } else {
+          lz = THREE.MathUtils.clamp(f.z + this.zoomOffsetZ, this.zMin, this.zMax);
+        }
+        this.desiredLook.set(THREE.MathUtils.clamp(fx, -this.clampX, this.clampX), 0, lz);
         this.desiredPos.copy(this.desiredLook).addScaledVector(this.zoomDir, this.zoomDist);
       } else {
         this.desiredLook.copy(this.camTarget);

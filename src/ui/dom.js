@@ -74,38 +74,36 @@ export function avatar(def, size = 40) {
   return node;
 }
 
-/** 사운드 설정 (시작 화면/일시정지 공용) */
+/** 사운드 설정 (설정 창/일시정지 공용): 배경음 · 효과음 각각 ON/OFF + 볼륨 */
 export function soundControls(audio, onClick) {
-  const toggle = el('button', { class: 'chip-toggle' });
-  const music = el('button', { class: 'chip-toggle' });
-  const slider = el('input', { type: 'range', min: '0', max: '1', step: '0.05', class: 'vol', 'aria-label': '볼륨' });
-  const sync = () => {
-    toggle.textContent = audio.enabled ? '🔊 효과음 ON' : '🔇 효과음 OFF';
-    toggle.classList.toggle('off', !audio.enabled);
-    music.textContent = audio.musicOn ? '🎵 음악 ON' : '🎵 음악 OFF';
-    music.classList.toggle('off', !audio.musicOn);
-    slider.value = String(audio.volume);
-    slider.disabled = !audio.enabled;
+  const row = (label, icon, isOn, setOn, getVol, setVol) => {
+    const toggle = el('button', { class: 'chip-toggle sc-toggle' });
+    const slider = el('input', { type: 'range', min: '0', max: '1', step: '0.05', class: 'vol', 'aria-label': `${label} 볼륨` });
+    const pct = el('span', { class: 'vol-pct' });
+    const sync = () => {
+      const on = isOn();
+      toggle.textContent = `${icon} ${on ? 'ON' : 'OFF'}`;
+      toggle.classList.toggle('off', !on);
+      slider.value = String(getVol());
+      slider.disabled = !on;
+      pct.textContent = `${Math.round(getVol() * 100)}%`;
+    };
+    toggle.addEventListener('click', () => {
+      audio.unlock();
+      setOn(!isOn());
+      onClick?.();
+    });
+    slider.addEventListener('input', () => {
+      audio.unlock();
+      setVol(parseFloat(slider.value));
+    });
+    slider.addEventListener('change', () => onClick?.());
+    audio.onChange(sync);
+    sync();
+    return el('div', { class: 'sound-line' }, [el('b', { class: 'sl-label', text: label }), toggle, slider, pct]);
   };
-  toggle.addEventListener('click', () => {
-    audio.unlock();
-    audio.setEnabled(!audio.enabled);
-    onClick?.();
-  });
-  music.addEventListener('click', () => {
-    audio.unlock();
-    audio.setMusic(!audio.musicOn);
-    onClick?.();
-  });
-  slider.addEventListener('input', () => {
-    audio.unlock();
-    audio.setVolume(parseFloat(slider.value));
-  });
-  slider.addEventListener('change', () => onClick?.());
-  audio.onChange(sync);
-  sync();
   return el('div', { class: 'sound-controls' }, [
-    el('div', { class: 'sound-row' }, [toggle, music]),
-    el('label', { class: 'vol-row' }, [el('span', { text: '볼륨' }), slider]),
+    row('배경음', '🎵', () => audio.musicOn, (v) => audio.setMusic(v), () => audio.musicVolume, (v) => audio.setMusicVolume(v)),
+    row('효과음', '🔊', () => audio.enabled, (v) => audio.setEnabled(v), () => audio.volume, (v) => audio.setVolume(v)),
   ]);
 }

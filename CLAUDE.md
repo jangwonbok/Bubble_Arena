@@ -22,7 +22,7 @@
 - 게임: 싱글 / AI 연습전 / 온라인 일반전 / 친구 초대전, 17×17 맵 6종, 밀 수 있는 블록, 아이템 9종, GLB 캐릭터 4종(몽글·피코·모씨·부루)
 - 최근 작업: 아이템 9종 디자인을 참고 아이콘 시트 기반으로 재제작 (`src/systems/views/ItemModels.js`),
   아이템 아래 색 받침 제거 → 그림자만 (`src/systems/views/ItemView.js`), UI 아이콘 자동 프레이밍.
-  테스트·빌드 통과. **이 변경은 아직 커밋/배포되지 않았음 → 사용자 승인 대기 중.**
+  테스트·빌드 통과. → 2026-11-27 아래 변경들과 함께 커밋 `225ef83` 로 배포 완료.
 - UI 2.0 (참고 이미지 기반 전면 개편, 미커밋): 메인(프로필 카드·원형 아이콘·모드 카드 도크), 싱글/연습 선택(3D 맵 썸네일),
   대기방(전신 캐릭터 카드·받침대), 인게임 HUD(점수/생존·타이머·컬러 참가자 카드·하단 능력치 바·조작법).
   공용 모달/상단 버튼 `src/ui/Modals.js`, 아이콘 `src/ui/icons.js`, 스타일 `src/styles/ui*.css`(main.css 위에 덮어씀).
@@ -34,6 +34,9 @@
 - (미커밋) 모바일 지원: `src/core/Device.js`(터치 기기 자동 감지, `?touch=1/0` 강제), `src/ui/TouchControls.js`(플로팅 조이스틱 + 물풍선/원격 버튼, 멀티터치),
   `Input.setTouchDir/queueBomb` (키보드 우선), `src/styles/mobile.css`(세로/가로 휴대폰·태블릿), SceneManager 세로 화면 카메라(fov 56·안개 보정)·저사양 렌더링.
   실기기 테스트는 아직 안 함 (브라우저 모바일 에뮬레이션으로만 확인)
+- 위 "(미커밋)" 항목들은 모두 2026-11-27 커밋 `225ef83` 로 GitHub Pages 배포 완료
+- 이후 배포: 배경음 엔진(메뉴/경기/남은 30초, 맵별 조·음색, 배경음·효과음 볼륨 분리), 휴대폰 확대·추적 카메라(`SceneManager.computeZoom`, HUD 확대 버튼),
+  아이템 획득 알림을 상단 작은 칩으로 (`HUD.itemNotice`, ×N 합치기·최대 2개)
 
 ## 구조 요약
 - 공용 로직(서버와 공유, Three.js 없음): `src/core/MatchSimulation.js`, `src/systems/*`, `src/map/MapGrid.js`, `src/maps/*`, `src/characters/Character.js`, `src/net/protocol.js`

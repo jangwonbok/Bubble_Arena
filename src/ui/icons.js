@@ -29,6 +29,7 @@ export const ICON = {
   crown: svg('<path fill="#ffc531" d="M3 8l4.5 3.5L12 5l4.5 6.5L21 8l-2 10H5z"/><rect x="5" y="18" width="14" height="2.6" rx="1" fill="#e89a00"/>'),
   vote: svg('<rect x="3" y="11" width="18" height="10" rx="2.5" fill="currentColor"/><path fill="#fff" stroke="currentColor" stroke-width="1.6" d="M7 4h10v9H7z"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m9.5 8.5 1.8 1.8 3.4-3.6"/>'),
   map: svg('<path fill="currentColor" d="M2.5 5.5 8.5 3l7 2.5 6-2.5v15.5l-6 2.5-7-2.5-6 2.5z" opacity=".25"/><path fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" d="M2.5 5.5 8.5 3l7 2.5 6-2.5v15.5l-6 2.5-7-2.5-6 2.5zM8.5 3v15.5M15.5 5.5V21"/>'),
+  zoom: svg('<circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.6"/><path fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" d="m15.5 15.5 5 5M10.5 7.5v6M7.5 10.5h6"/>'),
   user: svg('<circle cx="12" cy="8" r="4.2" fill="currentColor"/><path fill="currentColor" d="M3.5 21c.6-4.6 4-7.2 8.5-7.2s7.9 2.6 8.5 7.2z"/>'),
 };
 

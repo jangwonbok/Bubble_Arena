@@ -131,6 +131,26 @@ body.touch .touch-controls { display: block; }
 .tc-count { position: absolute; right: -6px; top: -6px; padding: 1px 6px; font-size: 12px; background: #ff5a6a; border: 2px solid #fff; border-radius: 999px; }
 .tc-btn.pressed { transform: translateY(4px) scale(0.95); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25); }
 
+/* 확대 / 전체 보기 버튼 (일시정지 버튼 아래) */
+.hud-btns { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.zoom-btn {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  font-size: 22px;
+  color: #3d6fd8;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 4px 0 #c9d7ea, 0 8px 16px rgba(30, 70, 140, 0.2);
+  cursor: pointer;
+  pointer-events: auto;
+}
+.zoom-btn.on { color: #2fae5c; }
+.zoom-btn:active { transform: translateY(2px); }
+
 /* 터치 기기: 키보드 안내 숨김, 능력치 바는 조작 버튼과 겹치지 않게 */
 body.touch .controls-hint,
 body.touch .stat-remote,
@@ -279,6 +299,8 @@ body.touch .effect-chips { bottom: calc(214px + var(--sa-b)); }
   .hud-timer-wrap { transform: translateX(-50%) scale(0.78); transform-origin: top center; }
   .pause-btn { width: 42px; height: 42px; }
   .pause-btn span { height: 16px; width: 5px; }
+  .hud-btns { flex-direction: row; gap: 6px; }
+  .zoom-btn { width: 40px; height: 40px; font-size: 20px; }
   /* 참가자 카드: 상단 아래에 가로 한 줄 */
   .cards { position: absolute; top: 56px; left: 0; right: 0; display: flex; flex-direction: row; gap: 6px; }
   .char-card { flex: 1; width: auto; min-width: 0; padding: 4px 6px 4px 4px; gap: 5px; border-radius: 14px; }
@@ -300,6 +322,11 @@ body.touch .effect-chips { bottom: calc(214px + var(--sa-b)); }
   .player-stats { width: max-content; }
   .effect-chips { flex-wrap: wrap; justify-content: center; width: 92vw; bottom: 54px; }
   .fx-chip { font-size: 12px; padding: 3px 8px; }
+  /* 아이템 칩: 상단 HUD 바로 아래 가운데, 작게 */
+  .item-lane { top: calc(104px + var(--sa-t)); left: 50%; transform: translateX(-50%); gap: 4px; }
+  body.touch .item-lane { top: calc(138px + var(--sa-t)); }
+  .item-chip { height: 24px; padding: 0 8px 0 2px; font-size: 11px; gap: 2px; box-shadow: 0 2px 6px rgba(30, 70, 140, 0.18); }
+  .item-chip img { width: 20px; height: 20px; }
   /* 터치(세로): 아래는 조이스틱·버튼 자리 → 능력치/효과는 위쪽 참가자 줄 아래로 */
   body.touch .hud-bottom .player-stats { position: fixed; top: calc(100px + var(--sa-t)); bottom: auto; }
   body.touch .effect-chips { position: fixed; top: calc(142px + var(--sa-t)); bottom: auto; }
@@ -361,6 +388,7 @@ body.touch .effect-chips { bottom: calc(214px + var(--sa-b)); }
   .map-chip { display: none; }
   .hud-timer-wrap { transform: translateX(-50%) scale(0.7); transform-origin: top center; }
   .pause-btn { width: 40px; height: 40px; }
+  .zoom-btn { width: 38px; height: 38px; font-size: 19px; }
   .cards { gap: 4px; }
   .char-card { width: 128px; padding: 3px 7px 3px 3px; gap: 5px; border-radius: 12px; }
   .char-card .avatar { width: 26px !important; height: 26px !important; }
@@ -387,6 +415,10 @@ body.touch .effect-chips { bottom: calc(214px + var(--sa-b)); }
   .stat-img { width: 24px; height: 24px; margin: -3px -2px; }
   .stat-val { font-size: 13px; white-space: nowrap; }
   .player-stats { width: max-content; }
+  /* 아이템 칩: 왼쪽 능력치 패널 바로 아래 (맵 가장자리 바깥쪽) */
+  .item-lane { top: calc(156px + var(--sa-t)); left: calc(8px + var(--sa-l)); transform: none; flex-direction: column; align-items: flex-start; gap: 4px; }
+  .item-chip { height: 24px; padding: 0 8px 0 2px; font-size: 11px; gap: 2px; }
+  .item-chip img { width: 20px; height: 20px; }
   .feed { top: auto; bottom: calc(10px + var(--sa-b)); left: 50%; transform: translateX(-50%); align-items: center; }
   .effect-chips, body.touch .effect-chips { bottom: calc(8px + var(--sa-b)); }
   .tc-zone { width: 34%; height: 70%; }
@@ -397,5 +429,11 @@ body.touch .effect-chips { bottom: calc(214px + var(--sa-b)); }
   .countdown { font-size: 90px; }
   .countdown.go, .banner { font-size: 70px; }
   .result-panel { min-width: 0; width: min(640px, 96vw); max-height: calc(100dvh - 16px); overflow-y: auto; gap: 6px; padding: 12px 18px; }
+  /* 일시정지: 왼쪽 버튼 / 오른쪽 사운드 설정 (세로 공간 부족) */
+  .pause-screen .modal-panel { display: grid; grid-template-columns: 200px 1fr; column-gap: 18px; row-gap: 8px; align-items: center; width: min(680px, 94vw); padding: 12px 18px; }
+  .pause-title, .pause-screen .sub { grid-column: 1 / -1; margin: 0 !important; font-size: 26px !important; text-align: center; }
+  .pause-screen .modal-panel > .btn { grid-column: 1; min-width: 0; padding: 8px 12px; font-size: 16px; }
+  .pause-screen .modal-panel > h3 { grid-column: 2; grid-row: 2; margin: 0; }
+  .pause-screen .sound-controls { grid-column: 2; grid-row: 3 / span 3; }
   .result-title { font-size: 44px; }
 }

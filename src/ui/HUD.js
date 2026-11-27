@@ -7,6 +7,18 @@ import { PERSONALITY_LABEL, MAP_ICON } from './components.js';
 import { ITEM_DEFS } from '../systems/items/itemDefs.js';
 
 const STATUS_TEXT = { alive: '생존', trapped: '갇힘!', dead: '탈락' };
+// 아이템 획득 칩에 쓰는 짧은 이름
+const ITEM_SHORT = {
+  bomb: '물풍선 +1',
+  range: '물줄기 +1',
+  speed: '스피드 UP',
+  shield: '방어막',
+  remote: '원격 폭발',
+  life: '생명 +1',
+  jump: '점프 슈즈',
+  slow: '시간 지연',
+  magnet: '아이템 자석',
+};
 
 export function charLabel(c) {
   if (c.isPlayer) return 'YOU';
@@ -28,6 +40,14 @@ export class HUD {
       class: 'pause-btn', 'aria-label': '일시정지', html: '<span></span><span></span>',
       onclick: () => { game.audio.play('click'); game.pause(); },
     });
+    this.zoomBtn = el('button', {
+      class: 'zoom-btn', 'aria-label': '확대 / 전체 보기',
+      onclick: () => {
+        game.audio.play('click');
+        game.sm.setZoom(!game.sm.zoomed);
+        this.syncZoom();
+      },
+    });
     this.cardsBox = el('div', { class: 'cards' });
     this.mapChip = el('div', { class: 'map-chip' });
     this.netChip = el('div', { class: 'net-chip hidden' });
@@ -48,6 +68,7 @@ export class HUD {
       ]),
     ]);
     this.feed = el('div', { class: 'feed' });
+    this.itemLane = el('div', { class: 'item-lane' });
     this.effectChips = el('div', { class: 'effect-chips' });
 
     const stat = (cls, type, label, val, pips) =>
@@ -83,7 +104,7 @@ export class HUD {
           this.timerTag,
           el('div', { class: 'panel hud-timer' }, [icon('stopwatch', 'clock-ico'), this.timer]),
         ]),
-        el('div', { class: 'hud-right' }, [this.cardsBox, this.pauseBtn]),
+        el('div', { class: 'hud-right' }, [this.cardsBox, el('div', { class: 'hud-btns' }, [this.pauseBtn, this.zoomBtn])]),
       ]),
       el('div', { class: 'hud-bottom' }, [
         this.effectChips,
@@ -99,6 +120,7 @@ export class HUD {
         this.hint,
       ]),
       this.feed,
+      this.itemLane,
     ]);
     // 모바일 가상 조작 (body.touch 일 때만 CSS 로 표시)
     this.touch = new TouchControls(game);
@@ -120,11 +142,9 @@ export class HUD {
       const t = { eruption: '🌋 화산 분출 경고!', wave: '🌊 파도가 몰려와요!', tide: '🌊 밀물이 들어와요! 가장자리를 피하세요', crumble: '☁️ 구름이 무너져요!' }[hazard.kind];
       if (t) this.toast(t, 'warn');
     });
+    // 아이템 획득: 큰 말풍선 대신 화면 상단의 작은 칩 + 능력치 바 반짝임
     b.on('itemRemoved', ({ item, by }) => {
-      if (by && by.isPlayer) {
-        const d = ITEM_DEFS[item.type];
-        if (d) this.toast(`${this.img(item.type)} ${d.name}${d.basic ? '' : ` — ${d.desc}`}`, 'item');
-      }
+      if (by && by.isPlayer) this.itemNotice(item.type);
     });
     b.on('shieldBlocked', ({ c }) => this.toast(`🛡️ ${name(c)} 방어막이 물줄기를 막았다!`));
     b.on('lifeUsed', ({ c }) => this.toast(`❤️ ${name(c)} 생명을 사용해 살아남았다!`, 'big'));
@@ -139,9 +159,61 @@ export class HUD {
   toast(html, kind = '') {
     const t = el('div', { class: `toast ${kind}`, html });
     this.feed.prepend(t);
-    while (this.feed.children.length > 5) this.feed.lastChild.remove();
+    // 휴대폰은 게임 화면을 덜 가리도록 최대 3개
+    const max = window.innerWidth <= 600 || window.innerHeight <= 500 ? 3 : 5;
+    while (this.feed.children.length > max) this.feed.lastChild.remove();
     setTimeout(() => t.classList.add('out'), 2600);
     setTimeout(() => t.remove(), 3100);
+  }
+
+  /**
+   * 아이템 획득 알림 (간결한 칩)
+   *  - 아이콘 + 짧은 이름. 같은 아이템을 연달아 먹으면 칩 하나로 합쳐 ×N 표시
+   *  - 최대 2개만 보이고 오래된 것부터 자연스럽게 사라짐 → 화면을 덮지 않음
+   *  - 기본 능력치 아이템은 하단(또는 상단) 능력치 칸도 통통 튀어 무엇이 올랐는지 바로 보임
+   */
+  itemNotice(type) {
+    const d = ITEM_DEFS[type];
+    if (!d) return;
+    const statEl = { bomb: this.bombVal, range: this.rangeVal, speed: this.speedVal }[type]?.closest('.stat');
+    if (statEl) {
+      statEl.classList.remove('bump');
+      void statEl.offsetWidth;
+      statEl.classList.add('bump');
+    }
+
+    const LIFE = 1700;
+    const existing = [...this.itemLane.children].find((c) => c.dataset.type === type && !c.classList.contains('out'));
+    if (existing) {
+      const n = Number(existing.dataset.count) + 1;
+      existing.dataset.count = n;
+      existing.querySelector('.in-count').textContent = `×${n}`;
+      existing.classList.remove('again');
+      void existing.offsetWidth;
+      existing.classList.add('again');
+      this.scheduleOut(existing, LIFE);
+      return;
+    }
+    const chip = el('div', { class: `item-chip${d.basic ? '' : ' special'}`, 'data-type': type, 'data-count': '1' }, [
+      el('img', { src: this.game.itemView.iconURL(type), alt: '' }),
+      el('b', { text: ITEM_SHORT[type] || d.name }),
+      el('span', { class: 'in-count' }),
+    ]);
+    this.itemLane.prepend(chip);
+    const alive = [...this.itemLane.children].filter((c) => !c.classList.contains('out'));
+    for (const old of alive.slice(2)) this.removeChip(old); // 최대 2개
+    this.scheduleOut(chip, LIFE);
+  }
+
+  scheduleOut(chip, ms) {
+    clearTimeout(chip._t);
+    chip._t = setTimeout(() => this.removeChip(chip), ms);
+  }
+
+  removeChip(chip) {
+    clearTimeout(chip._t);
+    chip.classList.add('out');
+    setTimeout(() => chip.remove(), 350);
   }
 
   /** 경기마다 참가자 구성이 달라지므로 카드 재생성 */
@@ -150,6 +222,7 @@ export class HUD {
     this.builtFor = g.characters;
     this.cache = {};
     this.feed.innerHTML = '';
+    this.itemLane.innerHTML = '';
     this.meAvatar.innerHTML = '';
     this.meAvatar.append(avatar(g.player.def, 44));
     this.aliveTotal.textContent = `/${g.characters.length}`;
@@ -182,7 +255,18 @@ export class HUD {
 
   onShow() {
     if (this.builtFor !== this.game.characters) this.rebuild();
+    this.syncZoom();
     this.refresh();
+  }
+
+  /** 확대/전체 보기 버튼 (휴대폰·터치 기기에서만) */
+  syncZoom() {
+    const sm = this.game.sm;
+    this.zoomBtn.classList.toggle('hidden', !sm.zoomAvailable);
+    this.zoomBtn.classList.toggle('on', !!sm.zoomed);
+    this.zoomBtn.innerHTML = '';
+    this.zoomBtn.append(icon(sm.zoomed ? 'map' : 'zoom'));
+    this.zoomBtn.title = sm.zoomed ? '전체 보기' : '내 캐릭터 확대';
   }
 
   pips(container, key, value, max, cls) {

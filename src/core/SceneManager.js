@@ -128,13 +128,51 @@ export class SceneManager {
       dist = Math.max(BASE_DIST * 0.9, (CONFIG.MAP_SIZE / 2 + margin) / Math.tan(hHalf));
     }
     const dir = new THREE.Vector3(0, 19.8, 15.3).normalize();
-    this.gamePos.copy(dir.multiplyScalar(dist));
+    this.camDir = dir.clone();
+    this.gamePos.copy(dir.clone().multiplyScalar(dist));
     this.distExtra = Math.max(0, dist - BASE_DIST);
     this.menuScale = portrait ? Math.max(1, dist / BASE_DIST) * 0.92 : 1; // 메인 화면 회전 카메라 거리
     // 세로 + 터치 조작: 아래쪽 조이스틱/버튼 자리를 비우도록 맵을 살짝 위로
     this.camTarget.set(0, 0, portrait && Device.touch ? 2.4 : 0.6);
     this.camera.updateProjectionMatrix();
+    this.computeZoom(aspect, portrait, dist);
     this.applyFog();
+  }
+
+  /**
+   * 휴대폰 확대 카메라: 화면에 약 11칸이 보이도록 당겨서 내 캐릭터를 따라감.
+   * 맵 가장자리에서는 맵 밖이 과하게 보이지 않도록 따라가는 범위를 제한.
+   */
+  computeZoom(aspect, portrait, overviewDist) {
+    const phone = Math.min(window.innerWidth, window.innerHeight) < 600;
+    this.zoomAvailable = Device.touch || phone;
+    const saved = localStorage.getItem('bubbleArena.zoom');
+    this.zoomed = this.zoomAvailable && (saved === null ? phone : saved === '1');
+    const vHalf = THREE.MathUtils.degToRad(this.camera.fov / 2);
+    const hHalf = Math.atan(Math.tan(vHalf) * aspect);
+    const SIN_ELEV = 0.79; // 카메라 내려다보는 각(≈52°) → 바닥에서 세로 범위가 늘어나는 비율
+    const VIEW = portrait ? 10 : 12; // 화면에 보일 칸 수 (짧은 쪽 기준, 가로 화면은 원근감 때문에 조금 더 넓게)
+    const distW = VIEW / 2 / Math.tan(hHalf);
+    const distH = ((VIEW / 2) * SIN_ELEV) / Math.tan(vHalf);
+    this.zoomDist = Math.min(overviewDist, Math.max(distW, distH));
+    // 가장자리에서도 캐릭터가 화면 구석 UI(점수판·조이스틱) 밑에 숨지 않도록 맵 밖으로 약 2칸까지는 따라감
+    const R = CONFIG.MAP_SIZE / 2 + 2.4;
+    this.clampX = Math.max(0, R - this.zoomDist * Math.tan(hHalf));
+    this.clampZ = Math.max(0, R - (this.zoomDist * Math.tan(vHalf)) / SIN_ELEV);
+    // 세로 화면: 캐릭터를 화면 중앙보다 약간 위에 (아래쪽은 조이스틱 자리)
+    this.zoomOffsetZ = portrait && Device.touch ? 1.4 : 0.3;
+  }
+
+  setZoom(on) {
+    if (!this.zoomAvailable) return;
+    this.zoomed = on;
+    localStorage.setItem('bubbleArena.zoom', on ? '1' : '0');
+  }
+
+  /** 따라갈 위치 (월드 좌표). null 이면 전체 보기 */
+  setFollow(x, z) {
+    if (x === null) this.followPos = null;
+    else (this.followPos ??= new THREE.Vector3()).set(x, 0, z);
   }
 
   /** 카메라가 멀어진 만큼 안개도 뒤로 (세로 화면에서 맵이 뿌옇게 보이지 않도록) */
@@ -153,8 +191,26 @@ export class SceneManager {
       this.camera.position.lerp(target, Math.min(1, dt * 2));
       this.camera.lookAt(0, 0, 0);
     } else {
-      this.camera.position.lerp(this.gamePos, Math.min(1, dt * 3.5));
-      this.camera.lookAt(this.camTarget);
+      this.look ??= this.camTarget.clone();
+      this.desiredPos ??= new THREE.Vector3();
+      this.desiredLook ??= new THREE.Vector3();
+      if (this.zoomed && this.followPos) {
+        // 확대: 캐릭터를 부드럽게 따라감 (가장자리에서는 멈춤)
+        const f = this.followPos;
+        this.desiredLook.set(
+          THREE.MathUtils.clamp(f.x, -this.clampX, this.clampX),
+          0,
+          THREE.MathUtils.clamp(f.z, -this.clampZ, this.clampZ) + this.zoomOffsetZ,
+        );
+        this.desiredPos.copy(this.desiredLook).addScaledVector(this.camDir, this.zoomDist);
+      } else {
+        this.desiredLook.copy(this.camTarget);
+        this.desiredPos.copy(this.gamePos);
+      }
+      const k = Math.min(1, dt * 4);
+      this.look.lerp(this.desiredLook, k);
+      this.camera.position.lerp(this.desiredPos, k);
+      this.camera.lookAt(this.look);
       if (this.shake > 0.001) {
         this.camera.position.x += (Math.random() - 0.5) * this.shake;
         this.camera.position.y += (Math.random() - 0.5) * this.shake;

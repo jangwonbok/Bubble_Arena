@@ -154,6 +154,55 @@
 .controls-hint:hover .ch-short { display: none; }
 .controls-hint kbd { font-size: 11px; }
 
+/* 아이템 획득 칩: 타이머 오른쪽 (게임 영역 밖 상단 띠) */
+.item-lane {
+  position: absolute;
+  top: 30px;
+  left: calc(50% + 116px);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  pointer-events: none;
+  z-index: 3;
+}
+.item-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 11px 0 4px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: #26365e;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.92);
+  border: 2px solid #fff;
+  box-shadow: 0 4px 12px rgba(30, 70, 140, 0.2);
+  animation: chipIn 0.32s cubic-bezier(0.2, 1.6, 0.4, 1);
+  transition: opacity 0.35s, transform 0.35s;
+}
+.item-chip img { width: 26px; height: 26px; margin: -2px 0; }
+.item-chip.special { background: linear-gradient(#fffbe6, #fff0b8); border-color: #ffe27a; }
+.item-chip .in-count { font-family: 'Fredoka', var(--font); font-weight: 700; color: #ff7a1a; }
+.item-chip.again { animation: chipAgain 0.3s ease; }
+.item-chip.out { opacity: 0; transform: translateY(-8px) scale(0.9); }
+@keyframes chipIn { from { opacity: 0; transform: translateY(-10px) scale(0.6); } }
+@keyframes chipAgain { 40% { transform: scale(1.14); } }
+
+/* 능력치 칸 반짝임 (기본 아이템 획득 시) */
+.stat.bump .stat-img { animation: statBump 0.5s cubic-bezier(0.2, 1.6, 0.4, 1); }
+.stat.bump .stat-val { animation: statFlash 0.6s ease; }
+@keyframes statBump { 35% { transform: scale(1.4) rotate(-8deg); } }
+@keyframes statFlash { 30% { color: #ff7a1a; transform: scale(1.15); } }
+
+/* 사운드 설정: 배경음 / 효과음 각 줄 */
+.sound-controls { width: 100%; max-width: 380px; gap: 10px; }
+.sound-line { display: grid; grid-template-columns: 54px 78px 1fr 40px; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; border-radius: 14px; background: #f2f7ff; }
+.sl-label { font-size: 15px; color: #36507e; }
+.sc-toggle { padding: 5px 8px; font-size: 14px; text-align: center; }
+.sound-line .vol { width: 100%; }
+.vol-pct { font-size: 12px; color: var(--ink-3); text-align: right; }
+
 /* AI 인원 선택 (싱글 선택 화면) */
 .ai-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 2px; }
 .ai-row .sec-head { margin: 0; }

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CONFIG, TILE, TERRAIN } from './Config.js';
 import { EventBus } from './EventBus.js';
-import { SceneManager } from './SceneManager.js';
+import { SceneManager, toWorld } from './SceneManager.js';
 import { Input } from './Input.js';
 import { AudioManager } from './AudioManager.js';
 import { Assets } from './Assets.js';
@@ -181,6 +181,7 @@ export class Game {
     b.on('rescued', () => a.play('rescue'));
     b.on('eliminated', ({ c, cause }) => {
       a.play(cause === 'lava' ? 'eruption' : cause === 'fall' ? 'fall' : 'pop');
+      if (c === this.player && this.state === 'playing') a.play('eliminatedMe');
       if (this.mode === 'online' && c === this.player) this.ui.toast('💦 탈락! 남은 경기를 관전합니다');
     });
     b.on('itemRemoved', ({ by }) => by && a.play('item'));
@@ -249,12 +250,12 @@ export class Game {
     this.state = 'menu';
     this.sm.setMode('menu');
     this.ui.show('start');
+    this.audio.playMusic('menu'); // 첫 터치/클릭으로 오디오가 열리면 바로 재생
   }
 
   // ---------------- 싱글 / AI 연습전 ----------------
   startLocal({ mode = 'single', mapId = 'random', charId = 0, aiCount = 3 } = {}) {
     this.audio.unlock();
-    this.audio.startMusic();
     aiCount = Math.max(1, Math.min(CHARACTER_DEFS.length - 1, aiCount | 0 || 3));
     this.lastLocal = { mode, mapId, charId, aiCount };
     this.mode = mode;
@@ -288,13 +289,16 @@ export class Game {
     this.countdown = seconds;
     this.lastCount = null;
     this.state = seconds > 0 ? 'countdown' : 'playing';
+    this.hurried = false;
+    this.audio.duck(false);
+    this.audio.playMusic('game', { mapId: this.mapDef?.id }); // 맵마다 조·음색이 다른 경기 음악
+    if (seconds > 0) this.audio.play('ready');
     this.ui.show('hud');
   }
 
   // ---------------- 온라인 ----------------
   startOnline(startMsg) {
     this.audio.unlock();
-    this.audio.startMusic();
     this.mode = 'online';
     this.sim = null;
     this.clearViews();
@@ -333,6 +337,7 @@ export class Game {
       this.online = null;
       this.state = 'menu';
       this.sm.setMode('menu');
+      this.audio.playMusic('menu');
       this.ui.show('lobby', { mode: this.session.room?.mode === 'public' ? 'public' : 'friend' });
       return;
     }
@@ -341,7 +346,7 @@ export class Game {
 
   toMenu() {
     if (this.mode === 'online' || this.session.room) this.session.leave();
-    this.audio.stopMusic();
+    this.audio.duck(false);
     this.setupMenuScene(this.mapDef?.id || 'meadow');
     this.enterMenu();
   }
@@ -352,23 +357,27 @@ export class Game {
     if (this.mode === 'online') {
       // 온라인은 멈출 수 없음 → 메뉴만 열고 조작 차단
       this.paused = true;
+      this.audio.duck(true);
       this.ui.show('pause');
       return;
     }
     this.pausedFrom = this.state;
     this.state = 'paused';
+    this.audio.duck(true); // 일시정지 중에는 배경음을 작게
     this.ui.show('pause');
   }
 
   resume() {
     if (this.mode === 'online') {
       this.paused = false;
+      this.audio.duck(false);
       this.ui.show('hud');
       return;
     }
     if (this.state !== 'paused') return;
     this.state = this.pausedFrom || 'playing';
     this.last = performance.now();
+    this.audio.duck(false);
     this.ui.show('hud');
   }
 
@@ -395,6 +404,10 @@ export class Game {
     this.itemView.update(animDt, t);
     this.effects.update(animDt, t);
     this.hazardView.update(animDt, t);
+    // 휴대폰 확대 카메라: 살아 있는 내 캐릭터를 따라감 (탈락하면 전체 보기로 관전)
+    const me = this.player;
+    if (this.state !== 'menu' && me && me.state !== STATE.DEAD) this.sm.setFollow(toWorld(me.x), toWorld(me.z));
+    else this.sm.setFollow(null);
     this.sm.update(dt, t);
     this.sm.render();
     this.ui.update(dt);
@@ -440,6 +453,13 @@ export class Game {
     }
 
     const tl = this.timeLeft;
+    if (tl <= 30 && tl > 0 && !this.hurried) {
+      // 남은 30초: 경고음 + 배경음 템포 업
+      this.hurried = true;
+      this.audio.play('hurry');
+      this.audio.setHurry(true);
+      this.ui.toast('⏰ 30초 남았어요! 서두르세요');
+    }
     if (tl <= 10 && tl > 0 && Math.ceil(tl) !== this.lastTick) {
       this.lastTick = Math.ceil(tl);
       this.audio.play('tick');
@@ -472,7 +492,13 @@ export class Game {
     this.state = 'ended';
     this.endTimer = 1.6;
     this.paused = false;
+    // 경기 음악을 멈추고 승패 징글 → 결과 화면에서는 잔잔한 메뉴 음악
+    this.audio.stopMusic(true);
     this.audio.play(playerWin ? 'win' : 'lose');
+    clearTimeout(this.resultMusicTimer);
+    this.resultMusicTimer = setTimeout(() => {
+      if (this.state === 'ended') this.audio.playMusic('menu');
+    }, 2600);
     this.ui.banner(playerWin ? 'WIN!' : reason === 'timeUp' ? 'TIME UP' : 'LOSE');
     if (this.ui.current === 'pause') this.ui.show('hud');
   }

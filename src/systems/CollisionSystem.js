@@ -1,4 +1,4 @@
-import { TILE } from '../core/Config.js';
+import { TILE, CONFIG } from '../core/Config.js';
 import { platformCovers } from '../maps/effects/PlatformEffect.js';
 
 // 타일 좌표 기반 충돌 판정
@@ -10,9 +10,19 @@ export const CollisionSystem = {
     const jumping = c && c.jumpTime > 0;
     if (t !== TILE.EMPTY && !(jumping && (t === TILE.BLOCK || t === TILE.PUSH))) return false;
     if (jumping) return true;
-    const bomb = world.bombs.get(world.grid.idx(x, z));
+    const idx = world.grid.idx(x, z);
+    const bomb = world.bombs.get(idx);
     if (bomb && !(c && bomb.passers.has(c.id))) return false;
+    // 물줄기가 살아 있는 칸에는 새로 들어가지 않음 (방향키를 누르고 있어도 칸 중앙에서 멈춤)
+    if (c && this.isFlameBlocked(world, c, x, z, idx)) return false;
     return true;
+  },
+
+  /** 판정이 살아 있는 물풍선 물줄기 칸인가 (이미 그 칸에 서 있는 캐릭터에게는 장애물이 아님) */
+  isFlameBlocked(world, c, x, z, idx = world.grid.idx(x, z)) {
+    const f = world.flames?.get(idx);
+    if (!f || !f.bomb || f.t < CONFIG.FLAME_SAFE_TAIL) return false;
+    return !(Math.round(c.x) === x && Math.round(c.z) === z);
   },
 
   /** 물풍선/블록/벽이 없는 순수 빈 타일 */

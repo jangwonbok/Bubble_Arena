@@ -1,4 +1,6 @@
 import { el, avatar } from './dom.js';
+import { icon } from './icons.js';
+import { TouchControls } from './TouchControls.js';
 import { CONFIG } from '../core/Config.js';
 import { STATE } from '../characters/Character.js';
 import { PERSONALITY_LABEL, MAP_ICON } from './components.js';
@@ -17,10 +19,11 @@ export class HUD {
   constructor(game) {
     this.game = game;
     this.timer = el('div', { class: 'timer-value', text: '3:00' });
+    this.timerTag = el('div', { class: 'timer-tag' });
     this.score = el('div', { class: 'score-value', text: '0' });
     this.aliveCount = el('div', { class: 'alive-value', text: '4' });
     this.aliveTotal = el('span', { text: '/4' });
-    this.meAvatar = el('div', { class: 'me-avatar' });
+    this.meAvatar = el('div', { class: 'me-avatar hidden' });
     this.pauseBtn = el('button', {
       class: 'pause-btn', 'aria-label': '일시정지', html: '<span></span><span></span>',
       onclick: () => { game.audio.play('click'); game.pause(); },
@@ -32,40 +35,74 @@ export class HUD {
     this.bombIcons = el('div', { class: 'pips' });
     this.rangeIcons = el('div', { class: 'pips' });
     this.speedIcons = el('div', { class: 'pips' });
+    this.bombVal = el('b', { class: 'stat-val' });
+    this.rangeVal = el('b', { class: 'stat-val' });
+    this.speedVal = el('b', { class: 'stat-val' });
+    this.remoteVal = el('b', { class: 'stat-val' });
+    this.remoteSlot = el('div', { class: 'stat stat-remote' }, [
+      el('div', { class: 'remote-ico' }, [el('img', { class: 'stat-img', src: game.itemView.iconURL('remote'), alt: '' })]),
+      el('div', { class: 'stat-text' }, [
+        el('small', { html: '<kbd>E</kbd>/<kbd>Shift</kbd>' }),
+        el('span', { class: 'stat-line' }, [el('span', { class: 'stat-name', text: '원격 폭발' })]),
+        this.remoteVal,
+      ]),
+    ]);
     this.feed = el('div', { class: 'feed' });
     this.effectChips = el('div', { class: 'effect-chips' });
+
+    const stat = (cls, type, label, val, pips) =>
+      el('div', { class: `stat ${cls}` }, [
+        el('img', { class: 'stat-img', src: game.itemView.iconURL(type), alt: '' }),
+        el('div', { class: 'stat-text' }, [el('small', { text: label }), val, pips]),
+      ]);
+
+    this.hint = el('div', { class: 'panel controls-hint' }, [
+      el('div', { class: 'ch-head' }, [icon('keyboard'), el('b', { text: '조작법' }), el('span', { class: 'ch-q', text: '?' })]),
+      el('div', { class: 'ch-short', html: '<kbd>WASD</kbd> / <kbd>SPACE</kbd>' }),
+      el('div', { class: 'ch-full' }, [
+        el('div', { html: '<kbd>WASD</kbd> / <kbd>방향키</kbd> 이동' }),
+        el('div', { html: '<kbd>SPACE</kbd> 물풍선' }),
+        el('div', { html: '<kbd>E</kbd> / <kbd>Shift</kbd> 원격 폭발' }),
+        el('div', { html: '<kbd>ESC</kbd> 메뉴' }),
+      ]),
+    ]);
 
     this.root = el('div', { class: 'screen hud' }, [
       el('div', { class: 'hud-top' }, [
         el('div', { class: 'hud-left' }, [
           el('div', { class: 'panel hud-score' }, [
             this.meAvatar,
-            el('div', {}, [el('small', { text: 'SCORE' }), this.score]),
+            el('div', { class: 'hs-block' }, [icon('trophy', 'hs-ico'), el('div', {}, [el('small', { text: 'SCORE' }), this.score])]),
             el('div', { class: 'divider' }),
-            el('div', {}, [el('small', { text: '생존' }), el('div', { class: 'alive-wrap' }, [this.aliveCount, this.aliveTotal])]),
+            el('div', { class: 'hs-block' }, [icon('shield', 'hs-ico'), el('div', {}, [el('small', { text: '생존' }), el('div', { class: 'alive-wrap' }, [this.aliveCount, this.aliveTotal])])]),
           ]),
           this.mapChip,
           this.netChip,
         ]),
-        el('div', { class: 'panel hud-timer' }, [el('span', { class: 'clock' }), this.timer]),
+        el('div', { class: 'hud-timer-wrap' }, [
+          this.timerTag,
+          el('div', { class: 'panel hud-timer' }, [icon('stopwatch', 'clock-ico'), this.timer]),
+        ]),
         el('div', { class: 'hud-right' }, [this.cardsBox, this.pauseBtn]),
       ]),
       el('div', { class: 'hud-bottom' }, [
-        el('div', { class: 'panel controls-hint' }, [
-          el('div', { html: '<kbd>WASD</kbd> / <kbd>방향키</kbd> 이동' }),
-          el('div', { html: '<kbd>SPACE</kbd> 물풍선' }),
-          el('div', { html: '<kbd>E</kbd> / <kbd>Shift</kbd> 원격 폭발' }),
-          el('div', { html: '<kbd>ESC</kbd> 메뉴' }),
-        ]),
         this.effectChips,
         el('div', { class: 'panel player-stats' }, [
-          el('div', { class: 'stat stat-bomb' }, [el('img', { class: 'stat-img', src: game.itemView.iconURL('bomb'), alt: '' }), el('small', { text: '물풍선' }), this.bombIcons]),
-          el('div', { class: 'stat stat-range' }, [el('img', { class: 'stat-img', src: game.itemView.iconURL('range'), alt: '' }), el('small', { text: '물줄기' }), this.rangeIcons]),
-          el('div', { class: 'stat stat-speed' }, [el('img', { class: 'stat-img', src: game.itemView.iconURL('speed'), alt: '' }), el('small', { text: '스피드' }), this.speedIcons]),
+          stat('stat-bomb', 'bomb', '물풍선', this.bombVal, this.bombIcons),
+          el('i', { class: 'stat-sep' }),
+          stat('stat-range', 'range', '물줄기', this.rangeVal, this.rangeIcons),
+          el('i', { class: 'stat-sep' }),
+          stat('stat-speed', 'speed', '스피드', this.speedVal, this.speedIcons),
+          el('i', { class: 'stat-sep' }),
+          this.remoteSlot,
         ]),
+        this.hint,
       ]),
       this.feed,
     ]);
+    // 모바일 가상 조작 (body.touch 일 때만 CSS 로 표시)
+    this.touch = new TouchControls(game);
+    this.root.append(this.touch.root);
 
     this.acc = 0;
     this.cache = {};
@@ -117,23 +154,29 @@ export class HUD {
     this.meAvatar.append(avatar(g.player.def, 44));
     this.aliveTotal.textContent = `/${g.characters.length}`;
     const def = g.mapDef;
-    this.mapChip.textContent = `${MAP_ICON[def.id] || ''} ${def.name} · ${def.effectText}`;
+    this.mapChip.innerHTML = '';
+    this.mapChip.append(el('b', { text: `${MAP_ICON[def.id] || ''} ${def.name}` }), el('span', { text: ` · ${def.effectText}` }));
+    this.mapChip.title = def.effectText;
     this.mapChip.className = `map-chip panel${g.mode === 'practice' ? ' practice' : ''}`;
+    this.timerTag.textContent = { single: 'SINGLE', practice: 'PRACTICE', online: 'ONLINE' }[g.mode] || 'MATCH';
     this.cardsBox.innerHTML = '';
+    const ico = (t) => `<img class="mini-ico" src="${g.itemView.iconURL(t)}" alt="">`;
     this.cards = g.characters.map((c) => {
       const status = el('span', { class: 'status' });
       const stats = el('div', { class: 'mini-stats' });
-      const label = el('small');
+      const effects = el('span', { class: 'mini-fx' });
+      const scoreEl = el('b', { class: 'card-score' });
+      const label = el('small', { class: 'card-label' });
       const card = el('div', { class: `char-card${c.isPlayer ? ' me' : ''}`, style: { '--c': c.def.css } }, [
-        avatar(c.def, 36),
+        avatar(c.def, 40),
         el('div', { class: 'card-info' }, [
-          el('div', { class: 'card-top' }, [el('b', { text: c.name }), label]),
-          el('div', { class: 'card-bottom' }, [status, stats]),
+          el('div', { class: 'card-top' }, [el('b', { class: 'card-name', text: c.name }), label, status]),
+          el('div', { class: 'card-bottom' }, [stats, effects, scoreEl]),
         ]),
         el('div', { class: 'trap-bar' }, [el('i')]),
       ]);
       this.cardsBox.append(card);
-      return { c, card, status, stats, label, bar: card.querySelector('.trap-bar i') };
+      return { c, card, status, stats, effects, scoreEl, label, ico, bar: card.querySelector('.trap-bar i') };
     });
   }
 
@@ -188,14 +231,19 @@ export class HUD {
       x.card.dataset.state = c.state;
       x.bar.style.transform = `scaleX(${c.state === STATE.TRAPPED ? c.trapTimer / CONFIG.TRAP_DURATION : 0})`;
       const icons = `${c.shieldTime > 0 ? '🛡️' : ''}${c.lives > 0 ? '❤️' : ''}${c.remoteCharges > 0 ? '📡' : ''}${c.jumpTime > 0 ? '🦘' : ''}${c.magnetTime > 0 ? '🧲' : ''}${c.slowTime > 0 ? '⏳' : ''}`;
-      this.set(x.stats, `ms${c.id}`, `💧${c.maxBombs} 🌊${c.range} 👟${c.speedMult.toFixed(2).replace(/0$/, '')}x · ${c.score} ${icons}`);
+      const statsKey = `${c.maxBombs}|${c.range}|${c.speedMult.toFixed(2)}`;
+      if (this.cache[`ms${c.id}`] !== statsKey) {
+        this.cache[`ms${c.id}`] = statsKey;
+        x.stats.innerHTML = `<span>${x.ico('bomb')}${c.maxBombs}</span><span>${x.ico('range')}${c.range}</span><span>${x.ico('speed')}${c.speedMult.toFixed(1)}x</span>`;
+      }
+      this.set(x.effects, `fx${c.id}`, icons);
+      this.set(x.scoreEl, `sc${c.id}`, c.score.toLocaleString());
     }
 
     const p = g.player;
     // 활성 아이템 효과
     const fx = [];
     if (p.shieldTime > 0) fx.push(['shield', `${this.img('shield')} 방어막 ${Math.ceil(p.shieldTime)}s`]);
-    if (p.remoteCharges > 0) fx.push(['remote', `${this.img('remote')} 원격 ×${p.remoteCharges} <kbd>E</kbd>`]);
     if (p.lives > 0) fx.push(['life', `${this.img('life')} 생명 +${p.lives}`]);
     if (p.jumpTime > 0) fx.push(['jump', `${this.img('jump')} 점프 ${Math.ceil(p.jumpTime)}s`]);
     if (p.magnetTime > 0) fx.push(['magnet', `${this.img('magnet')} 자석 ${Math.ceil(p.magnetTime)}s`]);
@@ -209,5 +257,11 @@ export class HUD {
     this.pips(this.rangeIcons, 'r', p.range, CONFIG.RANGE_MAX, 'range');
     const maxLv = Math.round((CONFIG.SPEED_MAX_MULT - 1) / CONFIG.SPEED_STEP);
     this.pips(this.speedIcons, 's', p.speedLevel + 1, maxLv + 1, 'speed');
+    this.set(this.bombVal, 'bv', `${p.bombsLeft} / ${p.maxBombs}`);
+    this.set(this.rangeVal, 'rv', `${p.range} / ${CONFIG.RANGE_MAX}`);
+    this.set(this.speedVal, 'sv', `${p.speedMult.toFixed(1)}x`);
+    this.set(this.remoteVal, 'remv', p.remoteCharges > 0 ? `Ready ×${p.remoteCharges}` : '없음');
+    this.remoteSlot.classList.toggle('ready', p.remoteCharges > 0);
+    this.touch.refresh(p);
   }
 }

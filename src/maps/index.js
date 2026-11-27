@@ -7,8 +7,10 @@ import volcano from './defs/volcano.js';
 import beach from './defs/beach.js';
 import candy from './defs/candy.js';
 import sky from './defs/sky.js';
+import pirate from './defs/pirate.js';
+import castle from './defs/castle.js';
 
-export const MAPS = [meadow, ice, volcano, beach, candy, sky];
+export const MAPS = [meadow, ice, volcano, beach, candy, sky, pirate, castle];
 export const MAP_IDS = MAPS.map((m) => m.id);
 
 export function getMap(id) {

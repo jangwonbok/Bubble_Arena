@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { CONFIG, TILE, TERRAIN } from './Config.js';
 import { EventBus } from './EventBus.js';
 import { SceneManager } from './SceneManager.js';
@@ -8,12 +9,12 @@ import { createRng, randomSeed } from './rng.js';
 import { MatchSimulation, RULESETS } from './MatchSimulation.js';
 import { MapGrid } from '../map/MapGrid.js';
 import { MapView } from '../map/MapView.js';
-import { getMap, resolveMapId } from '../maps/index.js';
+import { getMap, resolveMapId, MAPS } from '../maps/index.js';
 import { CHARACTER_DEFS } from '../characters/characterDefs.js';
 import { Character, STATE } from '../characters/Character.js';
 import { CharacterModel } from '../characters/CharacterModel.js';
-import { loadModel, instantiate, renderPortrait, disposePortraitRenderer } from '../characters/ModelLibrary.js';
-import { Portraits } from '../ui/dom.js';
+import { loadModel, instantiate, renderPortrait, renderFigure, disposePortraitRenderer } from '../characters/ModelLibrary.js';
+import { Portraits, Figures, MapThumbs } from '../ui/dom.js';
 import { BombView } from '../systems/views/BombView.js';
 import { EffectsView } from '../systems/views/EffectsView.js';
 import { ItemView } from '../systems/views/ItemView.js';
@@ -23,7 +24,11 @@ import { OnlineMatch } from '../net/OnlineMatch.js';
 import { UIManager } from '../ui/UIManager.js';
 
 const RECORD_KEY = 'bubbleArena.records';
-const AI_ORDER = ['aggressive', 'balanced', 'survival'];
+const AI_PERSONALITIES = {
+  1: ['balanced'],
+  2: ['aggressive', 'survival'],
+  3: ['aggressive', 'balanced', 'survival'],
+};
 
 /**
  * 게임 상태 머신 + 메인 루프.
@@ -84,13 +89,58 @@ export class Game {
           this.models[def.id].attachGLB(instantiate(info, this.itemView.envMap));
           try {
             Portraits.set(def.id, renderPortrait(info));
+            Figures.set(def.id, renderFigure(info));
           } catch (e) {
             console.warn('[portrait]', def.model, e);
           }
         })
         .catch((e) => console.warn(`[model] ${def.model}.glb 로드 실패 → 기본 모델 사용`, e)),
     );
-    this.modelsReady = Promise.all(jobs).then(() => disposePortraitRenderer());
+    this.modelsReady = Promise.all(jobs).then(() => {
+      disposePortraitRenderer();
+      // 캐릭터까지 보이는 상태에서 맵 썸네일 생성 (메뉴 화면일 때만)
+      setTimeout(() => this.buildMapThumbs(), 300);
+    });
+  }
+
+  /** 모든 맵의 3D 썸네일을 메인 렌더러로 한 번에 찍어 둔다 (같은 프레임 안에서 처리 → 깜빡임 없음) */
+  buildMapThumbs() {
+    if (this.state !== 'menu' || this.mapThumbsBuilt) return;
+    this.mapThumbsBuilt = true;
+    const prev = this.menuMap?.id || 'meadow';
+    const renderer = this.sm.renderer;
+    const src = renderer.domElement;
+    const cam = new THREE.PerspectiveCamera(34, src.width / src.height, 0.1, 200);
+    const W = 400;
+    const H = 220;
+    const out = document.createElement('canvas');
+    out.width = W;
+    out.height = H;
+    const ctx = out.getContext('2d');
+    try {
+      for (const def of MAPS) {
+        this.setupMenuScene(def.id);
+        for (const c of this.characters) this.modelFor(c).update(0.016, c, 0);
+        this.mapView.update(0, 0, null);
+        cam.position.set(6.5, 14.5, 14);
+        cam.lookAt(0, -1, 0.6);
+        renderer.render(this.sm.scene, cam);
+        // 화면 중앙을 썸네일 비율로 잘라냄
+        // 세로 화면 등 폭이 좁으면 폭 기준으로 잘라 비율 유지
+        let ch = src.height * 0.66;
+        let cw = ch * (W / H);
+        if (cw > src.width) {
+          cw = src.width;
+          ch = cw * (H / W);
+        }
+        ctx.clearRect(0, 0, W, H);
+        ctx.drawImage(src, (src.width - cw) / 2, (src.height - ch) / 2, cw, ch, 0, 0, W, H);
+        MapThumbs.set(def.id, out.toDataURL('image/jpeg', 0.86));
+      }
+    } catch (e) {
+      console.warn('[map thumbs]', e);
+    }
+    this.setupMenuScene(prev);
   }
 
   get world() {
@@ -202,19 +252,23 @@ export class Game {
   }
 
   // ---------------- 싱글 / AI 연습전 ----------------
-  startLocal({ mode = 'single', mapId = 'random', charId = 0 } = {}) {
+  startLocal({ mode = 'single', mapId = 'random', charId = 0, aiCount = 3 } = {}) {
     this.audio.unlock();
     this.audio.startMusic();
-    this.lastLocal = { mode, mapId, charId };
+    aiCount = Math.max(1, Math.min(CHARACTER_DEFS.length - 1, aiCount | 0 || 3));
+    this.lastLocal = { mode, mapId, charId, aiCount };
     this.mode = mode;
     this.online = null;
 
     const def = getMap(resolveMapId(mapId));
     const pDef = CHARACTER_DEFS[charId] || CHARACTER_DEFS[0];
     const chars = [new Character(pDef, { slot: 0, controller: 'local', name: pDef.name })];
-    CHARACTER_DEFS.filter((d) => d !== pDef).forEach((d, i) =>
-      chars.push(new Character(d, { slot: i + 1, controller: 'ai', personality: AI_ORDER[i], name: d.name })),
-    );
+    // AI 인원에 따라 성향을 고르게 배분 (1명: 균형형, 2명: 공격형+생존형, 3명: 전부)
+    const personalities = AI_PERSONALITIES[aiCount];
+    CHARACTER_DEFS.filter((d) => d !== pDef)
+      .slice(0, aiCount)
+      .forEach((d, i) => chars.push(new Character(d, { slot: i + 1, controller: 'ai', personality: personalities[i], name: d.name })));
+    // 시작 위치는 MatchSimulation 이 인원수에 맞게 배치 (2명: 대각선, 3명: 세 모서리, 4명: 네 모서리)
 
     this.clearViews();
     this.sim = new MatchSimulation({ bus: this.bus, mapDef: def, characters: chars, rules: RULESETS[mode], seed: randomSeed() });

@@ -104,6 +104,8 @@ export class OnlineMatch {
         const bomb = this.findBomb(e.id) || { id: e.id, owner: ch(e.o) };
         if (bomb.idx !== undefined) this.world.bombs.delete(bomb.idx);
         const tiles = e.tiles.map(([x, z, d, end]) => ({ x, z, dir: d ? DIR_LIST[d] : null, end: !!end }));
+        // 예측 이동도 서버와 같이 물줄기 칸을 피하도록 클라이언트에 물줄기 기록
+        for (const t of tiles) this.world.flames.set(this.grid.idx(t.x, t.z), { t: CONFIG.FLAME_DURATION, owner: bomb.owner, bomb: true });
         bus.emit('bombExploded', { bomb, tiles });
         break;
       }
@@ -253,6 +255,10 @@ export class OnlineMatch {
   update(dt, inputEnabled) {
     const game = this.game;
     if (this.countdown > 0) this.countdown -= dt;
+    for (const [idx, f] of this.world.flames) {
+      f.t -= dt;
+      if (f.t <= 0) this.world.flames.delete(idx);
+    }
 
     // 0) 이동형 발판: 추정 서버 시간으로 위치 계산, 내 예측 캐릭터도 함께 태움
     if (this.offset !== null) {

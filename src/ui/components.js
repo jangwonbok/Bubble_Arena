@@ -1,11 +1,12 @@
-import { el, avatar } from './dom.js';
+import { el, avatar, MapThumbs } from './dom.js';
+import { icon } from './icons.js';
 import { MAPS } from '../maps/index.js';
 import { MapGrid } from '../map/MapGrid.js';
 import { createRng } from '../core/rng.js';
 import { TILE, TERRAIN } from '../core/Config.js';
 import { CHARACTER_DEFS } from '../characters/characterDefs.js';
 
-const MAP_ICON = { meadow: '🌿', ice: '❄️', volcano: '🌋', beach: '🌊', candy: '🍭', sky: '☁️' };
+const MAP_ICON = { meadow: '🌿', ice: '❄️', volcano: '🌋', beach: '🌊', candy: '🍭', sky: '☁️', pirate: '🏴‍☠️', castle: '🏰' };
 const previewCache = new Map();
 
 /** 맵 정의로부터 실제 레이아웃을 생성해 미리보기 이미지를 그린다 */
@@ -25,6 +26,8 @@ export function mapPreview(def) {
       const tr = grid.terrainAt(x, z);
       let col = (x + z) % 2 ? P.alt : P.floor;
       if (tr) col = terrainColor[tr] || P.conv || col;
+      const f = def.visual.floorAt?.(x, z);
+      if (f && !tr) col = `#${((x + z) % 2 ? f.b : f.a).toString(16).padStart(6, '0')}`;
       if (t === TILE.WALL) col = P.wall;
       if (t === TILE.PIT) col = P.pit || '#000';
       ctx.fillStyle = col;
@@ -87,17 +90,21 @@ export function renderMapCards(container, opts) {
       'button',
       {
         class: `map-card${opts.selected === id ? ' selected' : ''}${opts.myVote === id ? ' voted' : ''}${opts.mode === 'view' ? ' readonly' : ''}`,
-        title: def ? def.description : '6개 맵 중 무작위',
+        title: def ? def.description : `${MAPS.length}개 맵 중 무작위`,
         onclick: () => opts.mode !== 'view' && opts.onPick?.(id),
       },
       [
         def
-          ? el('img', { class: 'map-thumb', src: mapPreview(def), alt: def.name })
-          : el('div', { class: 'map-thumb random-thumb', text: '?' }),
+          ? el('div', { class: 'map-thumb-wrap' }, [
+              MapThumbs.bind(el('img', { class: 'map-thumb', alt: def.name }), id, mapPreview(def)),
+            ])
+          : el('div', { class: 'map-thumb-wrap random-thumb' }, [el('span', { class: 'rq q1', text: '?' }), el('span', { class: 'rq q2', text: '?' }), el('span', { class: 'rq q3', text: '🎲' })]),
         el('div', { class: 'map-info' }, [
           el('b', { text: `${MAP_ICON[id] || '🎲'} ${def ? def.name : '랜덤 맵'}` }),
           el('small', { text: def ? def.effectText : '시작할 때 무작위로 결정' }),
         ]),
+        opts.selected === id ? el('span', { class: 'map-check' }, [icon('check')]) : null,
+        opts.myVote === id ? el('span', { class: 'my-vote', text: '내 투표' }) : null,
         votes ? el('span', { class: 'vote-badge', text: `🗳 ${votes}` }) : null,
       ],
     );
@@ -120,7 +127,11 @@ export function renderCharPicker(container, { selected, taken = new Set(), onPic
           title: isTaken ? '다른 플레이어가 선택함' : d.name,
           onclick: () => !isTaken && onPick(d.id),
         },
-        [avatar(d, 44), el('span', { text: d.name })],
+        [
+          avatar(d, 44),
+          el('span', { class: 'cp-name', text: d.name }),
+          d.id === selected ? el('span', { class: 'cp-badge', text: '선택됨' }) : null,
+        ],
       ),
     );
   }

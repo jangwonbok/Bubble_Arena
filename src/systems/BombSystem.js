@@ -75,7 +75,7 @@ export const BombSystem = {
     for (const c of world.characters) {
       if (c.state !== STATE.ALIVE || c.invulnerable > 0 || c.jumpTime > 0) continue; // 점프 중엔 물줄기 위로
       const f = world.flames.get(world.grid.idx(c.tx, c.tz));
-      if (!f) continue;
+      if (!f || f.t < CONFIG.FLAME_SAFE_TAIL) continue;
       if (c.shieldTime > 0) {
         // 방어막: 1회 방어 후 소멸, 잠깐 무적
         c.shieldTime = 0;
@@ -114,7 +114,7 @@ export const BombSystem = {
 
     for (const t of tiles) {
       const idx = world.grid.idx(t.x, t.z);
-      world.flames.set(idx, { t: CONFIG.FLAME_DURATION, owner: bomb.owner });
+      world.flames.set(idx, { t: CONFIG.FLAME_DURATION, owner: bomb.owner, bomb: true });
 
       // 연쇄 폭발
       const other = world.bombs.get(idx);

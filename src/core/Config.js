@@ -15,6 +15,7 @@ export const CONFIG = {
   SPEED_MAX_MULT: 1.5,
 
   FLAME_DURATION: 0.55, // 물줄기 지속 (피격 판정 시간)
+  FLAME_SAFE_TAIL: 0.12, // 물줄기가 사라지는 마지막 구간: 판정 없음 (연출상 거의 사라진 물줄기에 맞는 일 방지)
   CHAIN_DELAY: 0.08, // 연쇄 폭발 지연
   TRAP_DURATION: 3.0, // 물방울 갇힘 → 탈락까지
   RESCUE_DISTANCE: 0.7,

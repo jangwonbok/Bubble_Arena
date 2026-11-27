@@ -5,6 +5,7 @@ import { LobbyScreen } from './LobbyScreen.js';
 import { HUD } from './HUD.js';
 import { PauseMenu } from './PauseMenu.js';
 import { ResultScreen } from './ResultScreen.js';
+import { Modals } from './Modals.js';
 
 // 화면 전환 관리: start / mapSelect / lobby / hud / pause / result
 // (+ 카운트다운, 배너, 알림, 네트워크 상태 오버레이)
@@ -28,12 +29,14 @@ export class UIManager {
     this.toasts = el('div', { class: 'global-toasts' });
     this.netEl = el('div', { class: 'net-status hidden' });
     root.append(this.countEl, this.bannerEl, this.toasts, this.netEl);
+    this.modals = new Modals(game, root);
     this.current = null;
 
     game.session.net.on('status', (s) => this.netStatus(s));
   }
 
   show(name, opts = {}) {
+    this.modals?.close();
     // HUD는 일시정지/결과 화면 뒤에도 유지
     const keepHud = name === 'pause' || name === 'result' || name === 'hud';
     for (const [k, s] of Object.entries(this.screens)) {

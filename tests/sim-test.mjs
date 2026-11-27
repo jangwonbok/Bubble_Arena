@@ -47,5 +47,27 @@ for (const map of MAPS) {
     );
   }
 }
+// AI 인원 설정 (싱글: 플레이어 1 + AI 1~3명) → 인원수별 시작 위치 / 경기 진행 확인
+console.log('\nAI 인원별 경기');
+const SPAWN_EXPECT = { 2: [[1, 1], [15, 15]], 3: [[1, 1], [15, 15], [15, 1]], 4: [[1, 1], [15, 1], [1, 15], [15, 15]] };
+for (const map of MAPS) {
+  for (const aiCount of [1, 2, 3]) {
+    const bus = new EventBus();
+    const n = aiCount + 1;
+    const chars = CHARACTER_DEFS.slice(0, n).map((d, i) => new Character(d, { slot: i, controller: 'ai', personality: PERS[i], human: i === 0 }));
+    const sim = new MatchSimulation({ bus, mapDef: map, characters: chars, rules: { ...RULESETS.online, endWhenHumansOut: false }, seed: 77 + aiCount });
+    const spawnsOk = chars.every((c, i) => c.x === SPAWN_EXPECT[n][i][0] && c.z === SPAWN_EXPECT[n][i][1]);
+    let err = null;
+    try {
+      for (let i = 0; i < 181 * 30 && !sim.ended; i++) sim.step(1 / 30);
+    } catch (e) {
+      err = e;
+    }
+    const ok = !err && spawnsOk && sim.outcome && sim.outcome.ranking.length === n;
+    if (!ok) failed++;
+    console.log(`${ok ? 'OK ' : 'ERR'} ${map.id.padEnd(8)} AI ${aiCount}명 (총 ${n}명) spawns=${spawnsOk} end=${sim.outcome?.reason ?? 'none'}@${sim.world.elapsed.toFixed(0)}s`, err ? `\n${err.stack}` : '');
+  }
+}
+
 console.log(failed ? `\n${failed} FAILED` : '\nALL PASSED');
 process.exit(failed ? 1 : 0);

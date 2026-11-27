@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { toWorld } from '../../core/SceneManager.js';
-import { buildItemModel, ITEM_COLORS } from './ItemModels.js';
+import { buildItemModel } from './ItemModels.js';
 import { ITEM_IDS } from '../items/itemDefs.js';
 
 // 필드 위 아이템 표시 (오브젝트 풀) + UI용 아이콘 이미지 생성
@@ -21,11 +21,9 @@ export class ItemView {
       pmrem.dispose();
     }
 
-    this.padGeo = new THREE.CylinderGeometry(0.36, 0.4, 0.07, 32);
-    this.ringGeo = new THREE.TorusGeometry(0.4, 0.022, 6, 40).rotateX(Math.PI / 2);
-    this.glowGeo = new THREE.CircleGeometry(0.46, 32).rotateX(-Math.PI / 2);
-    this.glowTex = this.makeGlowTexture();
-    this.padMats = {};
+    // 색깔 받침 없이 옅은 그림자만 (아이템 자체가 잘 보이도록)
+    this.shadowGeo = new THREE.CircleGeometry(0.32, 32).rotateX(-Math.PI / 2);
+    this.shadowMat = new THREE.MeshBasicMaterial({ map: this.makeShadowTexture(), transparent: true, depthWrite: false });
 
     bus.on('itemSpawned', ({ item }) => this.add(item));
     bus.on('itemRemoved', ({ item, by, magnet }) => {
@@ -34,44 +32,34 @@ export class ItemView {
     });
   }
 
-  makeGlowTexture() {
+  makeShadowTexture() {
     const c = document.createElement('canvas');
     c.width = c.height = 64;
     const ctx = c.getContext('2d');
     const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    g.addColorStop(0, 'rgba(255,255,255,0.9)');
-    g.addColorStop(0.5, 'rgba(255,255,255,0.35)');
-    g.addColorStop(1, 'rgba(255,255,255,0)');
+    g.addColorStop(0, 'rgba(0,0,0,0.38)');
+    g.addColorStop(0.6, 'rgba(0,0,0,0.15)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, 64, 64);
     return new THREE.CanvasTexture(c);
   }
 
-  padMat(type) {
-    const col = ITEM_COLORS[type] ?? 0xffffff;
-    return (this.padMats[type] ??= {
-      pad: new THREE.MeshStandardMaterial({ color: col, roughness: 0.3, emissive: col, emissiveIntensity: 0.45 }),
-      glow: new THREE.MeshBasicMaterial({ color: col, map: this.glowTex, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending }),
-    });
-  }
-
   build(type) {
     const g = new THREE.Group();
-    const m = this.padMat(type);
-    const pad = new THREE.Mesh(this.padGeo, m.pad);
-    pad.position.y = 0.035;
-    pad.receiveShadow = true;
-    const glow = new THREE.Mesh(this.glowGeo, m.glow);
-    glow.position.y = 0.075;
-    const ring = new THREE.Mesh(this.ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, depthWrite: false }));
-    ring.position.y = 0.09;
+    const shadow = new THREE.Mesh(this.shadowGeo, this.shadowMat);
+    shadow.position.y = 0.012;
     const icon = buildItemModel(type, this.envMap);
-    icon.scale.setScalar(0.78);
+    icon.scale.setScalar(1.05);
+    // 위에서 내려다보는 카메라 쪽으로 앞면을 살짝 기울여 정면 실루엣이 잘 보이게
+    const tilt = new THREE.Group();
+    tilt.rotation.x = -0.42;
+    tilt.add(icon);
     const holder = new THREE.Group();
-    holder.position.y = 0.5;
-    holder.add(icon);
-    g.add(pad, glow, ring, holder);
-    g.userData = { icon: holder, ring, glow, type };
+    holder.position.y = 0.52;
+    holder.add(tilt);
+    g.add(shadow, holder);
+    g.userData = { icon: holder, shadow, type };
     return g;
   }
 
@@ -131,13 +119,11 @@ export class ItemView {
       u.age += dt;
       const a = Math.min(1, u.age / 0.35);
       g.scale.setScalar(a < 1 ? a * (1 + Math.sin(a * Math.PI) * 0.4) : 1);
-      u.icon.position.y = 0.5 + Math.sin(time * 3 + u.phase) * 0.07;
-      // 정면을 보여주며 좌우로 살랑 (참고 이미지처럼 아이콘 앞면이 잘 보이게)
-      u.icon.rotation.y = Math.sin(time * 1.4 + u.phase) * 0.6;
-      const pulse = (time * 1.2 + u.phase * 0.3) % 1;
-      u.ring.scale.setScalar(1 + pulse * 0.45);
-      u.ring.material.opacity = 0.5 * (1 - pulse);
-      u.glow.material.opacity = 0.3 + Math.sin(time * 3 + u.phase) * 0.1;
+      const bob = Math.sin(time * 3 + u.phase) * 0.07;
+      u.icon.position.y = 0.52 + bob;
+      // 정면을 보여주며 좌우로 살랑 (아이콘 앞면이 잘 보이게)
+      u.icon.rotation.y = Math.sin(time * 1.4 + u.phase) * 0.45;
+      u.shadow.scale.setScalar(1 - bob * 1.2);
     }
   }
 
@@ -171,8 +157,19 @@ export class ItemView {
         const model = buildItemModel(type, env);
         model.rotation.y = -0.25;
         model.rotation.x = 0.08;
-        scene.add(model);
+        // 모델 크기에 맞춰 화면에 꽉 차게 (위로 뻗은 물기둥·안테나·별이 잘리지 않도록)
+        const fit = new THREE.Group();
+        fit.add(model);
+        const box = new THREE.Box3().setFromObject(fit);
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        model.position.sub(center);
+        const dist = (Math.max(size.x, size.y) * 0.56) / Math.tan(THREE.MathUtils.degToRad(15)) + size.z * 0.5;
+        cam.position.set(0, dist * 0.1, dist);
+        cam.lookAt(0, 0, 0);
+        scene.add(fit);
         r.render(scene, cam);
+        scene.remove(fit);
         this.icons[type] = r.domElement.toDataURL('image/png');
         scene.remove(model);
       }

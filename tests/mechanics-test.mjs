@@ -209,5 +209,44 @@ console.log('추가 아이템');
   }
 }
 
+console.log('물줄기 진입 방지');
+{
+  // 블록 앞 물풍선 폭발 → 아이템을 먹으려고 방향키를 계속 눌러도 물줄기 칸으로 들어가 갇히지 않음
+  const { sim, w, g, p } = setup('meadow');
+  for (let x = 1; x <= 7; x++) if (g.get(x, 1) !== TILE.PILLAR) g.set(x, 1, TILE.EMPTY);
+  g.set(1, 2, TILE.EMPTY);
+  g.set(5, 1, TILE.BLOCK);
+  p.x = 3; p.z = 1;
+  p.intentBomb = true;
+  run(sim, 1 / 60);
+  // 물풍선(4,1 근처)에서 벗어나 왼쪽으로 대피 후 대기
+  p.x = 2; p.z = 1;
+  run(sim, 0.1, () => (p.intentDir = { dx: -1, dz: 0 }));
+  const bomb = [...w.bombs.values()][0];
+  check(!!bomb && bomb.x === 3, `물풍선 설치 (${bomb?.x},${bomb?.z})`);
+  p.x = 1; p.z = 1;
+  // 범위 밖(1,1)에서 기다리다가, 터지는 순간부터 오른쪽(아이템 방향)을 계속 누름
+  let trapped = false;
+  run(sim, CONFIG.BOMB_FUSE + 0.2, () => {
+    p.intentDir = w.bombs.size ? null : { dx: 1, dz: 0 };
+    if (p.state !== 'alive') trapped = true;
+  });
+  // 범위 1: (2,1)~(4,1)에 물줄기. 플레이어는 (1,1)에서 멈춰 있어야 함
+  check(!trapped && p.state === 'alive', '폭발 중 방향키를 눌러도 물줄기 칸에 들어가지 않음');
+  check(p.x <= 1.01, `물줄기가 남아 있는 동안 칸 중앙에서 멈춤 (x=${p.x.toFixed(2)})`);
+  run(sim, CONFIG.FLAME_DURATION + 0.2, () => (p.intentDir = { dx: 1, dz: 0 }));
+  check(p.state === 'alive' && p.x > 2, `물줄기가 끝나면 다시 이동 가능 (x=${p.x.toFixed(2)})`);
+  // 이미 물줄기 칸에 서 있으면 판정은 그대로
+  const { sim: s2, w: w2, g: g2, p: p2 } = setup('meadow');
+  w2.flames.set(g2.idx(1, 1), { t: CONFIG.FLAME_DURATION, owner: s2.characters[1], bomb: true });
+  run(s2, 0.05);
+  check(p2.state === 'trapped', '물줄기 칸 위에 있으면 정상적으로 갇힘');
+  // 사라지는 마지막 구간은 판정 없음
+  const { sim: s3, w: w3, g: g3, p: p3 } = setup('meadow');
+  w3.flames.set(g3.idx(1, 1), { t: CONFIG.FLAME_SAFE_TAIL * 0.5, owner: s3.characters[1], bomb: true });
+  run(s3, 0.05);
+  check(p3.state === 'alive', '거의 사라진 물줄기에는 갇히지 않음');
+}
+
 console.log(fail ? `\n${fail} FAILED` : '\nALL PASSED');
 process.exit(fail ? 1 : 0);

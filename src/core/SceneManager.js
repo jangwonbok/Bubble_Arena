@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { CONFIG } from './Config.js';
+import { Device } from './Device.js';
 
 const HALF = (CONFIG.MAP_SIZE - 1) / 2;
 /** 타일 좌표 → 월드 좌표 */
@@ -8,8 +9,11 @@ export const toWorld = (t) => t - HALF;
 // 렌더러 · 카메라 · 조명 · 씬 관리
 export class SceneManager {
   constructor(canvas) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // 모바일: 안티앨리어싱 대신 적당한 해상도(최대 1.5배)로 → 발열/배터리·프레임 안정
+    this.lowPower = Device.lowPower;
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: !this.lowPower || window.devicePixelRatio < 2, powerPreference: 'high-performance' });
+    this.maxPixelRatio = this.lowPower ? 1.5 : 2;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.maxPixelRatio));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -32,6 +36,9 @@ export class SceneManager {
     this.setupLights();
     this.onResize = this.onResize.bind(this);
     window.addEventListener('resize', this.onResize);
+    // 화면 회전: 일부 모바일 브라우저는 회전 직후 크기를 늦게 알려 줌 → 한 번 더 맞춤
+    window.addEventListener('orientationchange', () => setTimeout(this.onResize, 250));
+    Device.onChange(this.onResize);
     this.onResize();
   }
 
@@ -59,8 +66,8 @@ export class SceneManager {
   applyEnvironment(env) {
     this.scene.background = this.makeSky(env.sky);
     this.scene.fog.color.setHex(env.fog.color);
-    this.scene.fog.near = env.fog.near;
-    this.scene.fog.far = env.fog.far;
+    this.fogBase = { near: env.fog.near, far: env.fog.far };
+    this.applyFog();
     this.hemi.color.setHex(env.hemi.sky);
     this.hemi.groundColor.setHex(env.hemi.ground);
     this.hemi.intensity = env.hemi.intensity;
@@ -77,7 +84,8 @@ export class SceneManager {
     const sun = new THREE.DirectionalLight(0xfff3dc, 2.4);
     sun.position.set(-7, 16, 9);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
+    const shadowRes = this.lowPower ? 1024 : 2048;
+    sun.shadow.mapSize.set(shadowRes, shadowRes);
     const s = 13;
     Object.assign(sun.shadow.camera, { left: -s, right: s, top: s, bottom: -s, near: 1, far: 45 });
     sun.shadow.bias = -0.0006;
@@ -103,19 +111,45 @@ export class SceneManager {
   onResize() {
     const w = window.innerWidth;
     const h = window.innerHeight;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.maxPixelRatio));
     this.renderer.setSize(w, h, false);
-    this.camera.aspect = w / h;
-    // 화면 비율이 좁으면 카메라를 뒤로 물려 맵 전체가 보이도록
-    const aspectFactor = Math.max(1, 1.45 / this.camera.aspect);
-    this.gamePos.set(0, 19.8 * aspectFactor, 15.3 * aspectFactor);
+    const aspect = w / h;
+    this.camera.aspect = aspect;
+    const portrait = aspect < 0.85;
+    // 세로 화면은 시야각을 넓혀 카메라가 너무 멀어지지 않게 (멀어지면 안개에 묻혀 흐려짐)
+    this.camera.fov = portrait ? 56 : 40;
+    const BASE_DIST = Math.hypot(19.8, 15.3); // 가로 화면 기준 거리 (≈25)
+    let dist = BASE_DIST * Math.max(1, 1.45 / aspect);
+    if (portrait) {
+      // 맵 폭(벽 포함 약 18칸 + 여유)이 가로 시야에 딱 들어오는 거리
+      const hHalf = Math.atan(Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * aspect);
+      // 태블릿 세로(덜 좁은 화면)는 위아래 UI 와 겹치지 않도록 여유를 더 둠
+      const margin = aspect > 0.6 ? 2.6 : 0.9;
+      dist = Math.max(BASE_DIST * 0.9, (CONFIG.MAP_SIZE / 2 + margin) / Math.tan(hHalf));
+    }
+    const dir = new THREE.Vector3(0, 19.8, 15.3).normalize();
+    this.gamePos.copy(dir.multiplyScalar(dist));
+    this.distExtra = Math.max(0, dist - BASE_DIST);
+    this.menuScale = portrait ? Math.max(1, dist / BASE_DIST) * 0.92 : 1; // 메인 화면 회전 카메라 거리
+    // 세로 + 터치 조작: 아래쪽 조이스틱/버튼 자리를 비우도록 맵을 살짝 위로
+    this.camTarget.set(0, 0, portrait && Device.touch ? 2.4 : 0.6);
     this.camera.updateProjectionMatrix();
+    this.applyFog();
+  }
+
+  /** 카메라가 멀어진 만큼 안개도 뒤로 (세로 화면에서 맵이 뿌옇게 보이지 않도록) */
+  applyFog() {
+    if (!this.fogBase) return;
+    const extra = (this.distExtra || 0) * (this.menuScale > 1 ? 1.2 : 1);
+    this.scene.fog.near = this.fogBase.near + extra;
+    this.scene.fog.far = this.fogBase.far + extra;
   }
 
   update(dt, time) {
     if (this.cameraMode === 'menu') {
       this.menuAngle += dt * 0.12;
-      const r = 19.6;
-      const target = new THREE.Vector3(Math.sin(this.menuAngle) * r, 12.4, Math.cos(this.menuAngle) * r);
+      const r = 19.6 * (this.menuScale || 1);
+      const target = new THREE.Vector3(Math.sin(this.menuAngle) * r, 12.4 * (this.menuScale || 1), Math.cos(this.menuAngle) * r);
       this.camera.position.lerp(target, Math.min(1, dt * 2));
       this.camera.lookAt(0, 0, 0);
     } else {

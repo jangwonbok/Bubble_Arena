@@ -34,6 +34,31 @@ function applyPortrait(node, url) {
   node.style.backgroundImage = `url("${url}"), radial-gradient(circle at 50% 35%, #ffffff, color-mix(in srgb, var(--c) 40%, white))`;
 }
 
+/** 캐릭터 전신 이미지 / 맵 3D 썸네일 (로드되면 등록된 <img> 자동 갱신) */
+function makeImageStore() {
+  return {
+    urls: {},
+    waiting: new Map(),
+    set(id, url) {
+      this.urls[id] = url;
+      for (const img of this.waiting.get(id) || []) img.src = url;
+      this.waiting.delete(id);
+    },
+    /** 이미 있으면 바로 src, 없으면 대기 목록에 등록 */
+    bind(img, id, fallback = '') {
+      if (this.urls[id]) img.src = this.urls[id];
+      else {
+        if (fallback) img.src = fallback;
+        if (!this.waiting.has(id)) this.waiting.set(id, new Set());
+        this.waiting.get(id).add(img);
+      }
+      return img;
+    },
+  };
+}
+export const Figures = makeImageStore();
+export const MapThumbs = makeImageStore();
+
 /** 캐릭터 얼굴 아바타 */
 export function avatar(def, size = 40) {
   const node = el('div', {

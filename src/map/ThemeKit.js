@@ -129,6 +129,40 @@ const FLOOR_TEX = {
     ctx.lineWidth = 6;
     ctx.strokeRect(5, 5, s - 10, s - 10);
   },
+  // 갑판 / 다리 판자 (가로 판자 3장 + 못)
+  deck: (ctx, s) => {
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, s, s);
+    const rnd = seeded(91);
+    const h = s / 3;
+    for (let i = 0; i < 3; i++) {
+      const y = i * h;
+      ctx.fillStyle = `rgba(150,110,70,${0.06 + rnd() * 0.08})`;
+      ctx.fillRect(0, y, s, h);
+      ctx.strokeStyle = 'rgba(120,80,40,0.22)';
+      ctx.lineWidth = 1.5;
+      for (let k = 0; k < 4; k++) {
+        const yy = y + 10 + rnd() * (h - 20);
+        ctx.beginPath(); ctx.moveTo(0, yy); ctx.bezierCurveTo(s * 0.3, yy + 4, s * 0.7, yy - 4, s, yy); ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(90,55,25,0.55)';
+      ctx.fillRect(0, y, s, 4);
+      ctx.fillStyle = 'rgba(80,80,90,0.6)';
+      for (const x of [14, s - 14]) { ctx.beginPath(); ctx.arc(x, y + h / 2, 3.5, 0, 7); ctx.fill(); }
+    }
+  },
+  // 파스텔 체크 타일 (모서리 둥근 줄눈 + 하이라이트)
+  checker: (ctx, s) => {
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, s, s);
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    ctx.lineWidth = 10;
+    ctx.strokeRect(5, 5, s - 10, s - 10);
+    ctx.strokeStyle = 'rgba(200,150,170,0.25)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(12, 12, s - 24, s - 24);
+    speckle(ctx, s, 16, [2, 4], () => 'rgba(255,255,255,0.8)', 93);
+  },
 };
 
 export function floorTexture(style) {
@@ -292,6 +326,49 @@ const tex = {
         ctx.stroke();
       }
     }),
+  water: () =>
+    canvasTex(256, (ctx, s) => {
+      const g = ctx.createLinearGradient(0, 0, s, s);
+      g.addColorStop(0, '#36b6ef');
+      g.addColorStop(1, '#1f8fd6');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, s, s);
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      const rnd = seeded(97);
+      for (let k = 0; k < 14; k++) {
+        const x = rnd() * s, y = rnd() * s, w = 18 + rnd() * 24;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.quadraticCurveTo(x + w / 2, y - 6, x + w, y);
+        ctx.stroke();
+      }
+      speckle(ctx, s, 24, [1.5, 3], () => 'rgba(255,255,255,0.7)', 98);
+    }),
+  hull: () =>
+    canvasTex(128, (ctx, s) => {
+      ctx.fillStyle = '#7a4a2a';
+      ctx.fillRect(0, 0, s, s);
+      for (let i = 0; i < 4; i++) {
+        ctx.fillStyle = i % 2 ? '#6a3e22' : '#84512e';
+        ctx.fillRect(0, (i * s) / 4, s, s / 4 - 3);
+      }
+      ctx.fillStyle = '#d9a84a';
+      ctx.fillRect(0, s - 14, s, 6); // 금색 띠
+    }),
+  brick: () =>
+    canvasTex(128, (ctx, s) => {
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, s, s);
+      ctx.strokeStyle = 'rgba(200,120,150,0.45)';
+      ctx.lineWidth = 3;
+      for (let r = 0; r < 4; r++) {
+        const y = (r * s) / 4;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(s, y); ctx.stroke();
+        for (let x = (r % 2) * 32; x < s; x += 64) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + s / 4); ctx.stroke(); }
+      }
+    }),
 };
 const T = (name) => once(`tex:${name}`, tex[name]);
 
@@ -317,6 +394,9 @@ export function wallMaterial(style, color) {
     case 'driftwood': return std('wall:drift', { map: T('wood'), color: 0xd8b088, roughness: 0.9 });
     case 'biscuit': return std('wall:biscuit', { map: T('biscuit'), roughness: 0.8 });
     case 'cloudstone': return std('wall:marble', { map: T('marble'), color, roughness: 0.5 });
+    case 'hull': return std('wall:hull', { map: T('hull'), roughness: 0.8 });
+    case 'rockwall': return std('wall:rockwall', { map: T('stone'), color: 0xb7a996, roughness: 0.95 });
+    case 'castle': return std(`wall:castle:${color}`, { map: T('brick'), color: color ?? 0xffc2d6, roughness: 0.6 });
     default: return std(`wall:stone:${color}`, { map: T('stone'), color, roughness: 0.9 });
   }
 }
@@ -387,6 +467,61 @@ const PILLARS = {
     { geo: geo.rbox(0.9, 0.16, 0.9, 0.05), mat: std('p:goldbase', { color: 0xffd86b, roughness: 0.35, metalness: 0.4 }), m: M([0, 0.08, 0]) },
     { geo: geo.cyl(), mat: std('p:column', { map: T('marble'), roughness: 0.4 }), m: M([0, 0.55, 0], [0.3, 0.8, 0.3]) },
     { geo: geo.rbox(0.8, 0.16, 0.8, 0.05), mat: std('p:goldbase', { color: 0xffd86b, roughness: 0.35, metalness: 0.4 }), m: M([0, 1.0, 0]) },
+  ],
+
+  // ---- 해적섬 ----
+  barrelStack: () => [
+    ...[[-0.2, -0.18], [0.2, -0.18], [0, 0.2]].map(([x, z]) => ({
+      geo: geo.cyl(), mat: std('p:barrel', { map: T('wood'), color: 0xc07a48, roughness: 0.8 }), m: M([x, 0.28, z], [0.2, 0.56, 0.2]),
+    })),
+    ...[[-0.2, -0.18], [0.2, -0.18], [0, 0.2]].map(([x, z]) => ({
+      geo: geo.torus(), mat: std('p:hoop', { color: 0x5a6070, metalness: 0.5, roughness: 0.4 }), m: M([x, 0.44, z], [0.2, 0.2, 0.08], [Math.PI / 2, 0, 0]),
+    })),
+    { geo: geo.cyl(), mat: std('p:barrel', {}), m: M([0, 0.82, -0.02], [0.2, 0.5, 0.2]) },
+    { geo: geo.torus(), mat: std('p:hoop', {}), m: M([0, 0.95, -0.02], [0.2, 0.2, 0.08], [Math.PI / 2, 0, 0]) },
+  ],
+  cannon: () => [
+    { geo: geo.rbox(0.8, 0.26, 0.6, 0.06), mat: std('p:carriage', { map: T('wood'), color: 0x9a5a30, roughness: 0.8 }), m: M([0, 0.2, 0]) },
+    ...[-1, 1].map((sx) => ({ geo: geo.cyl(), mat: std('p:wheel', { color: 0x4a2e1a, roughness: 0.8 }), m: M([sx * 0.26, 0.17, 0.32], [0.17, 0.07, 0.17], [Math.PI / 2, 0, 0]) })),
+    ...[-1, 1].map((sx) => ({ geo: geo.cyl(), mat: std('p:wheel', {}), m: M([sx * 0.26, 0.17, -0.32], [0.17, 0.07, 0.17], [Math.PI / 2, 0, 0]) })),
+    { geo: geo.cyl(), mat: std('p:iron', { color: 0x2e3440, metalness: 0.7, roughness: 0.35 }), m: M([0.08, 0.5, 0], [0.17, 0.78, 0.17], [0, 0, Math.PI / 2 - 0.2]) },
+    { geo: geo.sphere(), mat: std('p:iron', {}), m: M([-0.3, 0.42, 0], [0.18, 0.18, 0.18]) },
+    { geo: geo.torus(), mat: std('p:brass', { color: 0xd9a84a, metalness: 0.7, roughness: 0.3 }), m: M([0.44, 0.6, 0], [0.16, 0.16, 0.16], [0, Math.PI / 2, 0]) },
+  ],
+  mast: () => [
+    { geo: geo.cyl(), mat: std('p:mastbase', { map: T('wood'), color: 0x8a5530 }), m: M([0, 0.12, 0], [0.38, 0.24, 0.38]) },
+    { geo: geo.cyl(), mat: std('p:mast', { color: 0x8a5530, roughness: 0.8 }), m: M([0, 1.25, 0], [0.09, 2.5, 0.09]) },
+    { geo: geo.cyl(), mat: std('p:mast', {}), m: M([0, 1.95, 0], [0.04, 1.5, 0.04], [0, 0, Math.PI / 2]) },
+    { geo: geo.rbox(1.3, 1.0, 0.04, 0.02), mat: std('p:sail', { color: 0xfff4dc, roughness: 0.9, side: THREE.DoubleSide }), m: M([0, 1.45, 0.06]) },
+    { geo: geo.rbox(0.36, 0.22, 0.02, 0.01), mat: std('p:flag', { color: 0x1d1d26, roughness: 0.8 }), m: M([0.18, 2.42, 0]) },
+    { geo: geo.sphere(), mat: std('p:skull', { color: 0xffffff }), m: M([0.16, 2.43, 0.02], [0.05, 0.05, 0.02]) },
+  ],
+  tiki: () => [
+    { geo: geo.rbox(0.62, 1.15, 0.62, 0.1), mat: std('p:tiki', { color: 0x7d8a6a, roughness: 0.95, flatShading: true }), m: M([0, 0.58, 0]) },
+    { geo: geo.rbox(0.72, 0.12, 0.72, 0.05), mat: std('p:tikitop', { color: 0x5f6b50, roughness: 0.95 }), m: M([0, 1.18, 0]) },
+    ...[-1, 1].map((sx) => ({ geo: geo.sphere(), mat: std('p:tikieye', { color: 0xffe9a8, emissive: 0x8a6a10, emissiveIntensity: 0.3 }), m: M([sx * 0.14, 0.86, 0.31], [0.08, 0.06, 0.03]) })),
+    { geo: geo.rbox(0.34, 0.1, 0.04, 0.02), mat: std('p:tikimouth', { color: 0x3a3a2a }), m: M([0, 0.55, 0.31]) },
+    { geo: geo.sphere(), mat: std('p:leafSm', { color: 0x48b84a, roughness: 0.7, flatShading: true }), m: M([0.28, 1.25, 0.1], [0.24, 0.08, 0.12], [0, 0.4, -0.4]) },
+  ],
+
+  // ---- 스위트 캐슬 ----
+  lollipop: () => [
+    { geo: geo.cyl(), mat: std('p:lolliBase', { color: 0xfff6fa, roughness: 0.4 }), m: M([0, 0.05, 0], [0.3, 0.1, 0.3]) },
+    { geo: geo.cyl(), mat: std('p:lolliStick', { color: 0xffffff, roughness: 0.35 }), m: M([0, 0.55, 0], [0.05, 1.1, 0.05]) },
+    { geo: geo.cyl(), mat: std('p:lolliCandy', { map: T('stripes'), color: 0xffd0ec, roughness: 0.2 }), m: M([0, 1.15, 0], [0.4, 0.1, 0.4], [Math.PI / 2, 0, 0]) },
+    { geo: geo.torus(), mat: std('p:lolliSwirl', { color: 0x7fd6ff, roughness: 0.2 }), m: M([0, 1.15, 0.06], [0.22, 0.22, 0.3]) },
+  ],
+  gingerHouse: () => [
+    { geo: geo.rbox(0.78, 0.6, 0.72, 0.06), mat: std('p:ginger', { color: 0xb86a35, roughness: 0.7 }), m: M([0, 0.3, 0]) },
+    { geo: geo.rbox(0.62, 0.08, 0.92, 0.03), mat: std('p:icing', { color: 0xffffff, roughness: 0.4 }), m: M([-0.2, 0.78, 0], [1, 1, 1], [0, 0, 0.72]) },
+    { geo: geo.rbox(0.62, 0.08, 0.92, 0.03), mat: std('p:icing', {}), m: M([0.2, 0.78, 0], [1, 1, 1], [0, 0, -0.72]) },
+    { geo: geo.rbox(0.56, 0.06, 0.86, 0.02), mat: std('p:roof', { color: 0x9a5528, roughness: 0.7 }), m: M([-0.18, 0.74, 0], [1, 1, 1], [0, 0, 0.72]) },
+    { geo: geo.rbox(0.56, 0.06, 0.86, 0.02), mat: std('p:roof', {}), m: M([0.18, 0.74, 0], [1, 1, 1], [0, 0, -0.72]) },
+    { geo: geo.rbox(0.22, 0.32, 0.04, 0.04), mat: std('p:door', { color: 0xff7aa8, roughness: 0.4 }), m: M([0, 0.18, 0.37]) },
+    ...[-1, 1].map((sx) => ({ geo: geo.rbox(0.14, 0.14, 0.04, 0.03), mat: std('p:window', { color: 0xfff27a, emissive: 0xffc030, emissiveIntensity: 0.35 }), m: M([sx * 0.24, 0.4, 0.37]) })),
+    ...[[-0.3, 0.38], [0.3, 0.38], [0, 0.45]].map(([x, y], k) => ({
+      geo: geo.sphere(), mat: std(`p:gumdrop${k}`, { color: [0xff5a7a, 0x6fd6ff, 0x9be87a][k], roughness: 0.2 }), m: M([x, y + 0.12, 0.38], [0.05, 0.05, 0.05]),
+    })),
   ],
 };
 export const pillarParts = (style) => once(`pillar:${style}`, PILLARS[style] || PILLARS.stone);
@@ -512,6 +647,80 @@ const BLOCKS = {
     star.position.set(0, 0.42, 0);
     star.scale.set(0.12, 0.12, 0.05);
     g.add(star);
+    return g;
+  },
+
+  // ---- 해적섬 ----
+  cargoCrate: () => {
+    const g = new THREE.Group();
+    g.add(new THREE.Mesh(geo.rbox(0.84, 0.76, 0.84, 0.08), std('b:cargo', { map: makeCrateTex(), color: 0xd8a878, roughness: 0.75 })));
+    const rope = std('b:rope', { color: 0xd9c08a, roughness: 1 });
+    for (const rot of [0, Math.PI / 2]) {
+      const r = new THREE.Mesh(geo.rbox(0.88, 0.8, 0.07, 0.03), rope);
+      r.rotation.y = rot;
+      g.add(r);
+    }
+    return g;
+  },
+  treasureChest: () => {
+    const g = new THREE.Group();
+    const wood = std('b:chest', { map: T('wood'), color: 0xb0683a, roughness: 0.7 });
+    const gold = std('b:chestGold', { color: 0xffc83a, metalness: 0.75, roughness: 0.3, emissive: 0x6a4000, emissiveIntensity: 0.2 });
+    const body = new THREE.Mesh(geo.rbox(0.82, 0.48, 0.66, 0.06), wood);
+    body.position.y = -0.14;
+    const lid = new THREE.Mesh(geo.cyl(), wood);
+    lid.rotation.z = Math.PI / 2;
+    lid.scale.set(0.3, 0.82, 0.33);
+    lid.position.y = 0.12;
+    g.add(body, lid);
+    for (const x of [-0.3, 0.3]) {
+      const band = new THREE.Mesh(geo.rbox(0.09, 0.5, 0.7, 0.02), gold);
+      band.position.set(x, -0.13, 0);
+      const arc = new THREE.Mesh(geo.cyl(), gold);
+      arc.rotation.z = Math.PI / 2;
+      arc.scale.set(0.315, 0.09, 0.345);
+      arc.position.set(x, 0.12, 0);
+      g.add(band, arc);
+    }
+    const lock = new THREE.Mesh(geo.rbox(0.14, 0.16, 0.06, 0.02), gold);
+    lock.position.set(0, 0.04, 0.34);
+    const coin = new THREE.Mesh(geo.cyl(), gold);
+    coin.scale.set(0.08, 0.02, 0.08);
+    coin.position.set(0.12, 0.42, 0.05);
+    g.add(lock, coin);
+    return g;
+  },
+  // ---- 스위트 캐슬 ----
+  macaron: () => {
+    const g = new THREE.Group();
+    const shell = std('b:macShell', { color: 0x9fe6c8, roughness: 0.55 });
+    for (const y of [-0.2, 0.2]) {
+      const s = new THREE.Mesh(geo.sphere(), shell);
+      s.scale.set(0.42, 0.17, 0.42);
+      s.position.y = y;
+      g.add(s);
+    }
+    const cream = new THREE.Mesh(geo.cyl(), std('b:macCream', { color: 0xfff6ee, roughness: 0.5 }));
+    cream.scale.set(0.39, 0.16, 0.39);
+    const foot = new THREE.Mesh(geo.torus(), std('b:macFoot', { color: 0x6fcfa6, roughness: 0.8 }));
+    foot.rotation.x = Math.PI / 2;
+    foot.scale.set(0.37, 0.37, 0.2);
+    foot.position.y = 0.09;
+    g.add(cream, foot);
+    return g;
+  },
+  cakeBlock: () => {
+    const g = new THREE.Group();
+    const sponge = new THREE.Mesh(geo.rbox(0.84, 0.68, 0.84, 0.08), std('b:sponge', { color: 0xffe2b0, roughness: 0.8 }));
+    sponge.position.y = -0.05;
+    const jam = new THREE.Mesh(geo.rbox(0.86, 0.08, 0.86, 0.03), std('b:jam', { color: 0xff5a8a, roughness: 0.3 }));
+    jam.position.y = -0.05;
+    const frost = new THREE.Mesh(geo.rbox(0.88, 0.14, 0.88, 0.06), std('b:frost', { color: 0xfff6fb, roughness: 0.4 }));
+    frost.position.y = 0.3;
+    const berry = new THREE.Mesh(geo.sphere(), std('p:cherry', { color: 0xff2040, roughness: 0.15, emissive: 0x400010 }));
+    berry.scale.setScalar(0.1);
+    berry.position.y = 0.46;
+    g.add(sponge, jam, frost, berry);
     return g;
   },
 
@@ -699,9 +908,80 @@ export function pitMaterial(style) {
       }),
     );
   }
+  if (style === 'water') return std('pit:water', { map: T('water'), roughness: 0.15, metalness: 0.1, transparent: true, opacity: 0.95 });
   return null;
 }
 export const lavaTexture = () => T('lava');
+export const waterTexture = () => T('water');
+
+// ---------------- 랜드마크 (여러 칸을 차지하는 장식 한 덩어리) ----------------
+const LANDMARKS = {
+  // 스위트 캐슬 중앙 분수대 (3×3 칸)
+  fountain() {
+    const g = new THREE.Group();
+    const pink = std('lm:pink', { map: T('brick'), color: 0xffb3cf, roughness: 0.5 });
+    const cream = std('lm:cream', { color: 0xfff4f8, roughness: 0.4 });
+    const water = std('lm:water', { color: 0x7fd8ff, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.85, emissive: 0x2a8ad0, emissiveIntensity: 0.2 });
+    const add = (geom, mat, pos, scale, rot = [0, 0, 0]) => {
+      const m = new THREE.Mesh(geom, mat);
+      m.position.set(...pos);
+      m.scale.set(...scale);
+      m.rotation.set(...rot);
+      m.castShadow = m.receiveShadow = true;
+      g.add(m);
+      return m;
+    };
+    add(geo.cyl(), pink, [0, 0.22, 0], [1.4, 0.44, 1.4]);
+    add(geo.torus(), cream, [0, 0.46, 0], [1.36, 1.36, 0.5], [Math.PI / 2, 0, 0]);
+    g.userData.pool = add(geo.cyl(), water, [0, 0.42, 0], [1.25, 0.06, 1.25]);
+    add(geo.cyl(), cream, [0, 0.85, 0], [0.22, 0.9, 0.22]);
+    add(geo.sphere(), pink, [0, 1.25, 0], [0.62, 0.2, 0.62]);
+    add(geo.cyl(), water, [0, 1.32, 0], [0.52, 0.04, 0.52]);
+    add(geo.cyl(), cream, [0, 1.55, 0], [0.12, 0.5, 0.12]);
+    add(geo.sphere(), pink, [0, 1.78, 0], [0.32, 0.12, 0.32]);
+    // 꼭대기 하트 + 물줄기
+    const spray = std('lm:spray', { color: 0xdff6ff, transparent: true, opacity: 0.75, emissive: 0x9fdcff, emissiveIntensity: 0.4 });
+    g.userData.spray = [];
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * Math.PI * 2;
+      g.userData.spray.push(add(geo.sphere(), spray, [Math.cos(a) * 0.4, 1.7, Math.sin(a) * 0.4], [0.07, 0.07, 0.07]));
+    }
+    add(geo.sphere(), std('lm:heart', { color: 0xff5a8a, roughness: 0.3, emissive: 0x6a0020, emissiveIntensity: 0.2 }), [0, 2.0, 0], [0.12, 0.12, 0.08]);
+    // 둘레 작은 탑 4개
+    for (const [x, z] of [[-1.1, -1.1], [1.1, -1.1], [-1.1, 1.1], [1.1, 1.1]]) {
+      add(geo.cyl(), pink, [x, 0.45, z], [0.18, 0.9, 0.18]);
+      add(geo.cone(), std('lm:roof', { color: 0x8fd0ff, roughness: 0.4 }), [x, 1.08, z], [0.24, 0.38, 0.24]);
+    }
+    return g;
+  },
+  // 해적섬 가운데 다리 양옆 바다 바위 (다리를 가리지 않도록 물 칸에만 배치, 판정 없음)
+  seaRocks() {
+    const g = new THREE.Group();
+    const rock = std('lm:rock', { color: 0x9a948a, roughness: 0.95, flatShading: true });
+    const moss = std('lm:moss', { color: 0x5fb84a, roughness: 0.9 });
+    const foam = std('lm:foam', { color: 0xffffff, transparent: true, opacity: 0.7, roughness: 0.6 });
+    for (const [x, z, s] of [[-0.9, -1.2, 0.42], [0.2, -1.35, 0.3], [0.95, -1.1, 0.36], [-0.7, 1.25, 0.34], [0.6, 1.3, 0.44], [0, 2.4, 0.24], [-0.4, -2.5, 0.26]]) {
+      const b = new THREE.Mesh(geo.ico(), rock);
+      b.position.set(x, -0.18, z);
+      b.scale.set(s, s * 0.8, s);
+      b.rotation.y = x * 3;
+      b.castShadow = true;
+      const m = new THREE.Mesh(geo.sphere(), moss);
+      m.position.set(x, -0.18 + s * 0.7, z);
+      m.scale.set(s * 0.5, s * 0.15, s * 0.5);
+      const f = new THREE.Mesh(geo.torus(), foam);
+      f.rotation.x = Math.PI / 2;
+      f.position.set(x, -0.26, z);
+      f.scale.set(s * 1.1, s * 1.1, 0.12);
+      g.add(b, m, f);
+    }
+    return g;
+  },
+};
+
+export function makeLandmark(style) {
+  return (LANDMARKS[style] || (() => new THREE.Group()))();
+}
 
 // ---------------- 배경 (테마별 1회 생성) ----------------
 function scatter(seed, count, ok, place) {
@@ -938,6 +1218,102 @@ const SCENERY = {
     rainbow.position.set(4, -2, -30);
     g.add(rainbow);
   },
+};
+
+SCENERY.pirate = function pirate(g) {
+  // 바다 + 왼쪽 아래 해적선 선체 + 오른쪽 섬 모래톱 + 먼 바다 섬들
+  const sea = new THREE.Mesh(new THREE.CircleGeometry(70, 48).rotateX(-Math.PI / 2), std('sc:pirateSea', { map: T('water'), color: 0xffffff, roughness: 0.15, metalness: 0.1 }));
+  sea.position.y = -0.42;
+  sea.receiveShadow = true;
+  g.add(sea);
+  g.userData.water = true;
+
+  // 선체: 왼쪽 절반 아래 (월드 x ≈ -8.5 ~ -1.5), 서쪽으로 뱃머리
+  const hullMat = std('sc:hull', { map: T('hull'), roughness: 0.8 });
+  const hull = new THREE.Mesh(new THREE.BoxGeometry(7.6, 1.6, R * 2 + 1.4), hullMat);
+  hull.position.set(-5.0, -1.12, 0);
+  g.add(hull);
+  const bow = new THREE.Mesh(new THREE.CylinderGeometry(0.01, R + 0.7, 4.2, 3, 1), hullMat);
+  bow.rotation.z = Math.PI / 2;
+  bow.rotation.x = Math.PI / 2;
+  bow.position.set(-10.9, -1.12, 0);
+  bow.scale.set(1, 1, 0.42);
+  g.add(bow);
+  const rail = std('sc:rail', { color: 0x5a341c, roughness: 0.8 });
+  for (const z of [-(R + 0.7), R + 0.7]) {
+    const r = new THREE.Mesh(new THREE.BoxGeometry(7.6, 0.5, 0.2), rail);
+    r.position.set(-5.0, -0.1, z);
+    g.add(r);
+  }
+  // 섬: 오른쪽 아래 모래톱 + 해변 잔디
+  const isle = new THREE.Mesh(new THREE.CylinderGeometry(R + 1.5, R + 3, 0.7, 40), std('sc:isleSand', { color: 0xf1d898, roughness: 1 }));
+  isle.scale.set(0.62, 1, 1.15);
+  isle.position.set(6.2, -0.62, 0);
+  isle.receiveShadow = true;
+  g.add(isle);
+  const palms = (x, z, r) => {
+    const p = new THREE.Group();
+    for (const part of pillarParts('palm')) {
+      const m = new THREE.Mesh(part.geo, part.mat);
+      m.applyMatrix4(part.m);
+      m.castShadow = true;
+      p.add(m);
+    }
+    p.position.set(x, -0.3, z);
+    p.scale.setScalar(1.5 + r());
+    p.rotation.y = r() * 6;
+    g.add(p);
+  };
+  scatter(71, 10, (x, z) => x > R + 1.4 && x < R + 4 && Math.abs(z) < R + 2, (x, z, r) => palms(x, z, r));
+  // 먼 섬들
+  scatter(73, 7, (x, z) => Math.hypot(x, z) > R + 9, (x, z, r) => {
+    const isl = new THREE.Mesh(geo.sphere(), std('sc:isleSand', {}));
+    isl.scale.set(2 + r() * 2, 0.5, 1.6 + r() * 1.5);
+    isl.position.set(x * 1.3, -0.4, z * 1.3);
+    g.add(isl);
+    palms(x * 1.3, z * 1.3, r);
+  });
+  // 바위
+  scatter(79, 14, (x, z) => outside(x, z) && Math.hypot(x, z) < R + 12 && x > 0, (x, z, r) => {
+    const rock = new THREE.Mesh(geo.ico(), std('lm:rock', { color: 0x9a948a, roughness: 0.95, flatShading: true }));
+    rock.position.set(x, -0.3, z);
+    rock.scale.set(0.5 + r() * 0.8, 0.4 + r() * 0.6, 0.5 + r() * 0.8);
+    rock.castShadow = true;
+    g.add(rock);
+  });
+};
+
+SCENERY.castle = function castle(g, env) {
+  SCENERY.candy(g, env);
+  const brick = std('sc:castleBrick', { map: T('brick'), color: 0xffc2d6, roughness: 0.6 });
+  const roofs = [0x8fd0ff, 0xff7aa8, 0xc59bff, 0xffd23f];
+  const tower = (x, z, h, k) => {
+    const t = new THREE.Group();
+    const body = new THREE.Mesh(geo.cyl(), brick);
+    body.scale.set(0.9, h, 0.9);
+    body.position.y = h / 2 - 0.3;
+    body.castShadow = true;
+    const roof = new THREE.Mesh(geo.cone(), std(`sc:troof${k}`, { color: roofs[k % 4], roughness: 0.4 }));
+    roof.scale.set(1.15, 1.4, 1.15);
+    roof.position.y = h + 0.4;
+    roof.castShadow = true;
+    const flag = new THREE.Mesh(geo.rbox(0.5, 0.3, 0.03, 0.01), std('sc:flag', { color: 0xff5a8a, side: THREE.DoubleSide }));
+    flag.position.set(0.28, h + 1.3, 0);
+    t.add(body, roof, flag);
+    t.position.set(x, 0, z);
+    g.add(t);
+  };
+  const e = R + 1.4;
+  [[-e, -e], [e, -e], [-e, e], [e, e]].forEach(([x, z], k) => tower(x, z, 3.2, k));
+  // 위/아래 성문 (양쪽 작은 탑)
+  [-1, 1].forEach((sz, k) => {
+    tower(-2.4, sz * e, 2.2, k + 1);
+    tower(2.4, sz * e, 2.2, k + 2);
+    const gate = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.35, 8, 16, Math.PI), brick);
+    gate.position.set(0, 0.6, sz * e);
+    gate.castShadow = true;
+    g.add(gate);
+  });
 };
 
 export function buildScenery(theme, env) {

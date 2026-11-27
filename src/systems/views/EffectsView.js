@@ -10,15 +10,18 @@ export class EffectsView {
     this.scene = scene;
     this.sm = sceneManager;
 
-    // 물줄기 세그먼트 (풀)
-    this.streamGeo = new THREE.CapsuleGeometry(0.36, 0.56, 6, 16).rotateZ(Math.PI / 2);
-    this.coreGeo = new THREE.CapsuleGeometry(0.17, 0.66, 4, 10).rotateZ(Math.PI / 2);
+    // 물줄기: 방향별 한 줄기(arm) + 중심 물보라(burst). 풀에서 재사용, 개체마다 재질 복제(개별 페이드)
+    // 줄기 몸통: 반지름 1, 길이 1, +X 방향으로 0→1 (scale.x = 길이, scale.y/z = 굵기)
+    this.armGeo = new THREE.CylinderGeometry(1, 1, 1, 18, 1, true).rotateZ(-Math.PI / 2).translate(0.5, 0, 0);
+    this.tipGeo = new THREE.SphereGeometry(1, 18, 12);
+    this.burstGeo = new THREE.SphereGeometry(1, 24, 16);
     this.waterMat = new THREE.MeshStandardMaterial({
       color: 0x36a8ff, emissive: 0x1a6dff, emissiveIntensity: 0.5, roughness: 0.08, transparent: true, opacity: 0.86, depthWrite: false,
     });
-    this.coreMat = new THREE.MeshBasicMaterial({ color: 0xc8eeff, transparent: true, opacity: 0.75, depthWrite: false });
-    this.segPool = [];
-    this.segs = [];
+    this.coreMat = new THREE.MeshBasicMaterial({ color: 0xd4f2ff, transparent: true, opacity: 0.8, depthWrite: false });
+    this.armPool = [];
+    this.burstPool = [];
+    this.blasts = []; // { arms: [...], burst, t, ox, oz }
 
     // 바닥 물결 링
     this.ringGeo = new THREE.RingGeometry(0.35, 0.5, 32).rotateX(-Math.PI / 2);
@@ -86,61 +89,92 @@ export class EffectsView {
     );
   }
 
-  acquireSeg() {
-    let s = this.segPool.pop();
-    if (!s) {
-      const outer = new THREE.Mesh(this.streamGeo, this.waterMat);
-      const core = new THREE.Mesh(this.coreGeo, this.coreMat);
+  acquireArm() {
+    let a = this.armPool.pop();
+    if (!a) {
+      const outerMat = this.waterMat.clone();
+      const coreMat = this.coreMat.clone();
+      const body = new THREE.Mesh(this.armGeo, outerMat);
+      const core = new THREE.Mesh(this.armGeo, coreMat);
+      const tip = new THREE.Mesh(this.tipGeo, outerMat);
+      const tipCore = new THREE.Mesh(this.tipGeo, coreMat);
+      body.renderOrder = 3;
+      tip.renderOrder = 3;
+      core.renderOrder = 4;
+      tipCore.renderOrder = 4;
+      a = new THREE.Group();
+      a.add(body, core, tip, tipCore);
+      a.userData = { body, core, tip, tipCore, outerMat, coreMat };
+    }
+    this.scene.add(a);
+    return a;
+  }
+
+  acquireBurst() {
+    let b = this.burstPool.pop();
+    if (!b) {
+      const outerMat = this.waterMat.clone();
+      const coreMat = this.coreMat.clone();
+      const outer = new THREE.Mesh(this.burstGeo, outerMat);
+      const core = new THREE.Mesh(this.burstGeo, coreMat);
       outer.renderOrder = 3;
       core.renderOrder = 4;
-      s = new THREE.Group();
-      s.add(outer, core);
+      core.scale.setScalar(0.55);
+      b = new THREE.Group();
+      b.add(outer, core);
+      b.userData = { outerMat, coreMat };
     }
-    this.scene.add(s);
-    return s;
+    this.scene.add(b);
+    return b;
   }
 
   explosion(tiles) {
-    let maxReach = 0;
-    for (const t of tiles) {
-      const s = this.acquireSeg();
-      const wx = toWorld(t.x);
-      const wz = toWorld(t.z);
-      s.position.set(wx, 0.38, wz);
-      s.rotation.set(0, 0, 0);
-      let len = 1;
-      if (!t.dir) {
-        // 중심: 둥근 물보라 (가로·세로 겹침)
-        s.userData.center = true;
-      } else {
-        s.userData.center = false;
-        s.rotation.y = t.dir.dx !== 0 ? 0 : Math.PI / 2;
-        if (t.end) len = 0.85;
-      }
-      s.userData.t = 0;
-      s.userData.len = len;
-      s.userData.delay = t.dir ? 0.012 * (Math.abs(t.x - tiles[0].x) + Math.abs(t.z - tiles[0].z)) : 0;
-      s.scale.set(0.001, 0.001, 0.001);
-      this.segs.push(s);
-      maxReach++;
+    const c = tiles[0];
+    const ox = toWorld(c.x);
+    const oz = toWorld(c.z);
+    const blast = { t: 0, arms: [], burst: null, seed: Math.random() * 10 };
 
-      this.droplets.emit(wx, 0.4, wz, {
-        count: t.dir ? 5 : 16, speed: t.dir ? 1.8 : 3.2, up: t.dir ? 3.5 : 5,
-        vx: t.dir ? t.dir.dx * 1.5 : 0, vz: t.dir ? t.dir.dz * 1.5 : 0,
-        size: 0.07, colors: [0x7fd0ff, 0xd8f4ff, 0x3a9dff], life: 0.8,
+    // 방향별 도달 거리 계산 → 방향마다 이어진 한 줄기로 표현 (칸마다 끊기지 않음)
+    const reach = new Map();
+    for (const t of tiles) {
+      if (!t.dir) continue;
+      const key = `${t.dir.dx},${t.dir.dz}`;
+      const dist = Math.abs(t.x - c.x) + Math.abs(t.z - c.z);
+      const r = reach.get(key);
+      if (!r || dist > r.dist) reach.set(key, { dir: t.dir, dist, end: t.end });
+    }
+    for (const { dir, dist } of reach.values()) {
+      const a = this.acquireArm();
+      a.position.set(ox, 0.36, oz);
+      a.rotation.set(0, Math.atan2(-dir.dz, dir.dx), 0);
+      a.userData.len = dist + 0.32; // 마지막 칸 중심보다 조금 더 (둥근 끝)
+      a.userData.tiles = dist;
+      a.userData.dir = dir;
+      a.userData.splashed = false;
+      a.visible = false;
+      blast.arms.push(a);
+    }
+
+    const b = this.acquireBurst();
+    b.position.set(ox, 0.38, oz);
+    b.scale.setScalar(0.01);
+    blast.burst = b;
+    blast.ox = ox;
+    blast.oz = oz;
+    this.blasts.push(blast);
+
+    // 중심 물보라 + 각 칸에서 약한 물 튀김
+    this.droplets.emit(ox, 0.45, oz, { count: 18, speed: 3.2, up: 5, size: 0.075, colors: [0x7fd0ff, 0xd8f4ff, 0x3a9dff], life: 0.85 });
+    for (const t of tiles) {
+      if (!t.dir) continue;
+      this.droplets.emit(toWorld(t.x), 0.4, toWorld(t.z), {
+        count: 3, speed: 1.4, up: 2.6, vx: t.dir.dx * 1.2, vz: t.dir.dz * 1.2,
+        size: 0.06, colors: [0x7fd0ff, 0xd8f4ff], life: 0.6,
       });
     }
-    // 중심에 세로 방향 세그먼트 추가 (십자 모양)
-    const c = tiles[0];
-    const extra = this.acquireSeg();
-    extra.position.set(toWorld(c.x), 0.38, toWorld(c.z));
-    extra.rotation.set(0, Math.PI / 2, 0);
-    extra.userData = { t: 0, len: 1, delay: 0, center: true };
-    extra.scale.setScalar(0.001);
-    this.segs.push(extra);
 
     this.addRing(c.x, c.z, 2.5);
-    this.sm.addShake(0.08 + Math.min(0.12, maxReach * 0.006));
+    this.sm.addShake(0.08 + Math.min(0.12, tiles.length * 0.006));
   }
 
   addRing(x, z, scale) {
@@ -153,12 +187,18 @@ export class EffectsView {
     this.rings.push(r);
   }
 
-  clear() {
-    for (const s of this.segs) {
-      this.scene.remove(s);
-      this.segPool.push(s);
+  releaseBlast(b) {
+    for (const a of b.arms) {
+      this.scene.remove(a);
+      this.armPool.push(a);
     }
-    this.segs.length = 0;
+    this.scene.remove(b.burst);
+    this.burstPool.push(b.burst);
+  }
+
+  clear() {
+    for (const b of this.blasts) this.releaseBlast(b);
+    this.blasts.length = 0;
     for (const r of this.rings) {
       this.scene.remove(r);
       this.ringPool.push(r);
@@ -170,25 +210,69 @@ export class EffectsView {
   }
 
   update(dt, time) {
+    // 물줄기 타임라인 (판정 시간 FLAME_DURATION 과 맞춤)
+    //  0 ~ EXT       : 중심에서 끝까지 빠르게 뻗어 나감 (ease-out)
+    //  ~ FADE_START  : 출렁이며 유지
+    //  FADE_START ~ D: 가늘어지고 투명해지며 바닥으로 가라앉음 (판정이 끝나는 SAFE_TAIL 즈음 거의 사라짐)
     const D = CONFIG.FLAME_DURATION;
-    for (let i = this.segs.length - 1; i >= 0; i--) {
-      const s = this.segs[i];
-      const u = s.userData;
-      u.t += dt;
-      const t = u.t - u.delay;
-      if (t >= D) {
-        this.scene.remove(s);
-        this.segPool.push(s);
-        this.segs.splice(i, 1);
+    const EXT = 0.13;
+    const FADE_START = D * 0.65;
+    const END = D + 0.05;
+    const easeOut = (x) => 1 - Math.pow(1 - x, 3);
+    const easeOutBack = (x) => 1 + 2.2 * Math.pow(x - 1, 3) + 1.2 * Math.pow(x - 1, 2);
+    for (let i = this.blasts.length - 1; i >= 0; i--) {
+      const b = this.blasts[i];
+      b.t += dt;
+      const t = b.t;
+      if (t >= END) {
+        this.releaseBlast(b);
+        this.blasts.splice(i, 1);
         continue;
       }
-      if (t < 0) continue;
-      const k = t / D;
-      const grow = k < 0.15 ? k / 0.15 : k > 0.7 ? Math.max(0, 1 - (k - 0.7) / 0.3) : 1;
-      const wob = 1 + Math.sin(time * 40 + i) * 0.06;
-      const thick = grow * wob * (u.center ? 1.25 : 1);
-      s.scale.set(u.len * (u.center ? 1 : Math.min(1, grow * 1.5)), thick, thick);
-      s.position.y = 0.38 + (1 - grow) * -0.2;
+      const fade = t < FADE_START ? 0 : Math.min(1, (t - FADE_START) / (END - FADE_START));
+      const fadeE = fade * fade; // ease-in
+      const alpha = 1 - fadeE;
+
+      // 중심 물보라: 톡 부풀었다가 줄기 굵기로 안정 → 함께 사라짐
+      const bk = Math.min(1, t / 0.12);
+      const burstR = (bk < 1 ? easeOutBack(bk) * 0.62 : 0.62 - Math.min(0.14, (t - 0.12) * 0.6)) * (1 - fadeE * 0.85);
+      const bw = 1 + Math.sin(time * 26 + b.seed) * 0.05;
+      b.burst.scale.set(burstR * bw, burstR * 0.8 / bw, burstR * bw);
+      b.burst.position.y = 0.38 - fadeE * 0.18;
+      b.burst.userData.outerMat.opacity = 0.86 * alpha;
+      b.burst.userData.coreMat.opacity = 0.8 * alpha;
+
+      for (let j = 0; j < b.arms.length; j++) {
+        const a = b.arms[j];
+        const u = a.userData;
+        a.visible = true;
+        const ext = easeOut(Math.min(1, t / (EXT * (0.7 + 0.3 * Math.min(u.tiles, 5) / 5))));
+        const len = Math.max(0.05, u.len * ext);
+        // 굵기: 뻗어 나가는 동안 살짝 두툼 → 유지(출렁임) → 가늘어짐
+        const wave = 1 + Math.sin(time * 34 + j * 1.7 + b.seed) * 0.07;
+        const swell = t < EXT ? 1.12 : 1;
+        const thick = 0.33 * swell * wave * (1 - fadeE * 0.9);
+        u.body.scale.set(len, thick, thick);
+        u.core.scale.set(len, thick * 0.45, thick * 0.45);
+        u.tip.position.x = len;
+        u.tipCore.position.x = len;
+        const tipR = thick * (1.08 + (1 - ext) * 0.25);
+        u.tip.scale.setScalar(tipR);
+        u.tipCore.scale.setScalar(tipR * 0.48);
+        a.position.y = 0.36 - fadeE * 0.2;
+        u.outerMat.opacity = 0.86 * alpha;
+        u.coreMat.opacity = 0.8 * alpha;
+        // 끝에 도달한 순간 물보라
+        if (!u.splashed && ext >= 0.98) {
+          u.splashed = true;
+          const ex = b.ox + u.dir.dx * u.tiles;
+          const ez = b.oz + u.dir.dz * u.tiles;
+          this.droplets.emit(ex, 0.4, ez, {
+            count: 7, speed: 1.8, up: 3.2, vx: u.dir.dx * 2, vz: u.dir.dz * 2,
+            size: 0.065, colors: [0x7fd0ff, 0xd8f4ff, 0xffffff], life: 0.7,
+          });
+        }
+      }
     }
 
     for (let i = this.rings.length - 1; i >= 0; i--) {

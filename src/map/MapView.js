@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Assets } from '../core/Assets.js';
 import { TILE, TERRAIN, isConveyor } from '../core/Config.js';
 import { toWorld } from '../core/SceneManager.js';
-import { floorTexture, wallMaterial, pillarParts, makeBlock, terrainMaterial, pitMaterial, conveyorTexture, lavaTexture, buildScenery, makePlatform } from './ThemeKit.js';
+import { floorTexture, wallMaterial, pillarParts, makeBlock, terrainMaterial, pitMaterial, conveyorTexture, lavaTexture, waterTexture, buildScenery, makePlatform, makeLandmark } from './ThemeKit.js';
 import { AmbientParticles } from './AmbientParticles.js';
 
 // 맵의 3D 표현.
@@ -70,7 +70,8 @@ export class MapView {
         // 보조 블록: 중앙에서의 거리 기준 2×2 군집 체크 무늬 → 대칭적인 2색 블록 배치
         const c = (grid.size - 1) / 2;
         const alt = def.visual.blockAlt && (Math.floor(Math.abs(x - c) / 2) + Math.floor(Math.abs(z - c) / 2)) % 2 === 1;
-        const m = this.acquire(t === TILE.PUSH ? pushStyle : alt ? def.visual.blockAlt.style : this.blockStyle);
+        const baseStyle = def.visual.blockAt?.(x, z) || (alt ? def.visual.blockAlt.style : this.blockStyle);
+        const m = this.acquire(t === TILE.PUSH ? pushStyle : baseStyle);
         m.position.set(toWorld(x), 0.41, toWorld(z));
         m.rotation.set(0, ((x * 7 + z * 3) % 4) * (Math.PI / 2), 0);
         m.scale.setScalar(1);
@@ -112,19 +113,19 @@ export class MapView {
   /** 하늘 섬 구름 붕괴 등: 바닥 타일 숨기기 */
   setTileHidden(idx, hidden) {
     const st = this.current;
-    const inst = st?.tileIndex.get(idx);
-    if (inst === undefined) return;
+    const t = st?.tileIndex.get(idx);
+    if (!t) return;
     if (hidden) {
       this.dummy.position.set(0, -50, 0);
       this.dummy.scale.setScalar(0.0001);
       this.dummy.updateMatrix();
-      st.floor.setMatrixAt(inst, this.dummy.matrix);
+      t.mesh.setMatrixAt(t.i, this.dummy.matrix);
       st.hidden.add(idx);
     } else {
-      st.floor.setMatrixAt(inst, st.floorMatrices[inst]);
+      t.mesh.setMatrixAt(t.i, t.matrix);
       st.hidden.delete(idx);
     }
-    st.floor.instanceMatrix.needsUpdate = true;
+    t.mesh.instanceMatrix.needsUpdate = true;
   }
 
   resetHiddenTiles() {
@@ -169,6 +170,15 @@ export class MapView {
         lt.offset.set(Math.sin(time * 0.3) * 0.1, time * 0.04);
       }
       if (st.jelly) st.jelly.scale.y = 1 + Math.sin(time * 6) * 0.25;
+      if (st.hasWater || this.currentScenery?.userData.water) waterTexture().offset.set(time * 0.03, Math.sin(time * 0.5) * 0.04);
+      for (const lm of st.landmarks || []) {
+        const spray = lm.userData.spray;
+        if (spray) spray.forEach((s, k) => {
+          const ph = (time * 1.4 + k / spray.length) % 1;
+          const a = (k / spray.length) * Math.PI * 2;
+          s.position.set(Math.cos(a) * (0.15 + ph * 0.9), 1.85 + Math.sin(ph * Math.PI) * 0.35 - ph * 0.5, Math.sin(a) * (0.15 + ph * 0.9));
+        });
+      }
     }
     const sea = this.currentScenery?.userData.sea;
     if (sea) {
@@ -187,25 +197,35 @@ export class MapView {
     const ca = new THREE.Color(V.floor.a);
     const cb = new THREE.Color(V.floor.b);
 
-    // 바닥 (구멍 제외)
-    const floorTiles = [];
-    for (let z = 0; z < n; z++) for (let x = 0; x < n; x++) if (grid.get(x, z) !== TILE.PIT) floorTiles.push([x, z]);
-    const floorMat = new THREE.MeshStandardMaterial({ map: floorTexture(V.floor.tex), roughness: V.floor.tex === 'snow' ? 0.7 : 0.95 });
-    const floor = new THREE.InstancedMesh(Assets.geo.tile, floorMat, floorTiles.length);
-    const tileIndex = new Map();
-    const floorMatrices = [];
-    floorTiles.forEach(([x, z], i) => {
-      dummy.position.set(toWorld(x), -0.15, toWorld(z));
-      dummy.rotation.set(0, 0, 0);
-      dummy.scale.setScalar(1);
-      dummy.updateMatrix();
-      floor.setMatrixAt(i, dummy.matrix);
-      floorMatrices.push(dummy.matrix.clone());
-      floor.setColorAt(i, (x + z) % 2 ? cb : ca);
-      tileIndex.set(grid.idx(x, z), i);
-    });
-    floor.receiveShadow = true;
-    group.add(floor);
+    // 바닥 (구멍 제외). visual.floorAt(x,z) 가 있으면 칸마다 텍스처/색을 다르게 (예: 해적선 갑판 ↔ 섬 모래)
+    const floorTiles = new Map(); // tex → [[x, z, colorA, colorB]]
+    for (let z = 0; z < n; z++) {
+      for (let x = 0; x < n; x++) {
+        if (grid.get(x, z) === TILE.PIT) continue;
+        const f = V.floorAt?.(x, z) || V.floor;
+        if (!floorTiles.has(f.tex)) floorTiles.set(f.tex, []);
+        floorTiles.get(f.tex).push([x, z, f === V.floor ? ca : new THREE.Color(f.a), f === V.floor ? cb : new THREE.Color(f.b)]);
+      }
+    }
+    const tileIndex = new Map(); // grid idx → { mesh, i, matrix }
+    let floor = null;
+    for (const [texName, tiles] of floorTiles) {
+      const floorMat = new THREE.MeshStandardMaterial({ map: floorTexture(texName), roughness: texName === 'snow' ? 0.7 : 0.95 });
+      const mesh = new THREE.InstancedMesh(Assets.geo.tile, floorMat, tiles.length);
+      tiles.forEach(([x, z, a, b], i) => {
+        dummy.position.set(toWorld(x), -0.15, toWorld(z));
+        dummy.rotation.set(0, 0, 0);
+        dummy.scale.setScalar(1);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+        mesh.setColorAt(i, (x + z) % 2 ? b : a);
+        tileIndex.set(grid.idx(x, z), { mesh, i, matrix: dummy.matrix.clone() });
+      });
+      mesh.receiveShadow = true;
+      group.add(mesh);
+      floor ??= mesh;
+    }
+    const floorMatrices = null;
 
     const walls = [];
     const pillars = [];
@@ -225,24 +245,45 @@ export class MapView {
       }
     }
 
-    // 외곽 벽
-    const wallMesh = new THREE.InstancedMesh(Assets.geo.wall, wallMaterial(V.wall.style, V.wall.color), walls.length);
-    walls.forEach(([x, z], k) => {
-      dummy.position.set(toWorld(x), 0.35, toWorld(z));
-      dummy.rotation.set(0, 0, 0);
-      dummy.scale.setScalar(1);
-      dummy.updateMatrix();
-      wallMesh.setMatrixAt(k, dummy.matrix);
-    });
-    wallMesh.castShadow = wallMesh.receiveShadow = true;
-    group.add(wallMesh);
+    // 외곽 벽 (visual.wallAt 으로 구간별 스타일 가능)
+    const wallGroups = new Map();
+    for (const [x, z] of walls) {
+      const style = V.wallAt?.(x, z) || V.wall.style;
+      if (!wallGroups.has(style)) wallGroups.set(style, []);
+      wallGroups.get(style).push([x, z]);
+    }
+    for (const [style, list] of wallGroups) {
+      const wallMesh = new THREE.InstancedMesh(Assets.geo.wall, wallMaterial(style, V.wall.color), list.length);
+      list.forEach(([x, z], k) => {
+        dummy.position.set(toWorld(x), 0.35, toWorld(z));
+        dummy.rotation.set(0, 0, 0);
+        dummy.scale.setScalar(1);
+        dummy.updateMatrix();
+        wallMesh.setMatrixAt(k, dummy.matrix);
+      });
+      wallMesh.castShadow = wallMesh.receiveShadow = true;
+      group.add(wallMesh);
+    }
 
     // 고정 장애물 (테마별 파츠를 각각 인스턴싱). layout.altPillars 위치는 랜드마크 장애물로 교체
+    // visual.pillarAt(x,z) 가 있으면 칸마다 스타일 지정 (null 이면 그리지 않음 → 랜드마크가 대신 표시)
     const altSet = new Set(grid.mirror(def.layout?.altPillars || []).map(([x, z]) => grid.idx(x, z)));
-    const groups = [
-      [V.pillar.style, pillars.filter(([x, z]) => !(V.pillarAlt && altSet.has(grid.idx(x, z))))],
-      [V.pillarAlt?.style, V.pillarAlt ? pillars.filter(([x, z]) => altSet.has(grid.idx(x, z))) : []],
-    ];
+    let groups;
+    if (V.pillarAt) {
+      const byStyle = new Map();
+      for (const [x, z] of pillars) {
+        const style = V.pillarAt(x, z);
+        if (!style) continue;
+        if (!byStyle.has(style)) byStyle.set(style, []);
+        byStyle.get(style).push([x, z]);
+      }
+      groups = [...byStyle];
+    } else {
+      groups = [
+        [V.pillar.style, pillars.filter(([x, z]) => !(V.pillarAlt && altSet.has(grid.idx(x, z))))],
+        [V.pillarAlt?.style, V.pillarAlt ? pillars.filter(([x, z]) => altSet.has(grid.idx(x, z))) : []],
+      ];
+    }
     for (const [style, list] of groups) {
      if (!style || !list.length) continue;
      for (const part of pillarParts(style)) {
@@ -266,7 +307,7 @@ export class MapView {
       hasLava = V.pit.style === 'lava';
       const pm = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), pitMat, pits.length);
       pits.forEach(([x, z], k) => {
-        dummy.position.set(toWorld(x), V.pit.style === 'void' ? -1.2 : -0.12, toWorld(z));
+        dummy.position.set(toWorld(x), { void: -1.2, water: -0.3 }[V.pit.style] ?? -0.12, toWorld(z));
         dummy.rotation.set(0, 0, 0);
         dummy.scale.setScalar(1);
         dummy.updateMatrix();
@@ -322,7 +363,16 @@ export class MapView {
       return pm;
     });
 
+    // 랜드마크 (분수대 · 바위 아치 등 여러 칸에 걸친 장식)
+    const landmarks = (V.landmarks || []).map((lm) => {
+      const m = makeLandmark(lm.style);
+      m.position.set(toWorld(lm.x), 0, toWorld(lm.z));
+      group.add(m);
+      return m;
+    });
+    const hasWater = V.pit?.style === 'water';
+
     this.root.add(group);
-    return { group, floor, tileIndex, floorMatrices, hidden: new Set(), hasConveyor, hasLava, jelly, platforms };
+    return { group, floor, tileIndex, floorMatrices, hidden: new Set(), hasConveyor, hasLava, hasWater, jelly, platforms, landmarks };
   }
 }

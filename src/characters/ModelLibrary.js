@@ -100,9 +100,35 @@ export function renderPortrait(info) {
   // 얼굴이 크게 보이도록 위쪽 2/3 을 프레이밍
   cam.position.set(0, TARGET_HEIGHT * 0.66, 2.25);
   cam.lookAt(0, TARGET_HEIGHT * 0.58, 0);
+  r.setSize(160, 160, false);
   r.render(scene, cam);
   const url = r.domElement.toDataURL('image/png');
   for (const m of model.userData.mats) m.dispose();
+  return url;
+}
+
+/** 전신 이미지 data URL (대기방 카드용, 세로 비율) */
+export function renderFigure(info) {
+  const r = getPortraitRenderer();
+  r.setSize(240, 300, false);
+  const scene = new THREE.Scene();
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xa0b0d0, 1.1));
+  const sun = new THREE.DirectionalLight(0xffffff, 2.1);
+  sun.position.set(-1.5, 3, 4);
+  scene.add(sun);
+  const rim = new THREE.DirectionalLight(0xcfe8ff, 0.8);
+  rim.position.set(2, 2, -3);
+  scene.add(rim);
+  const model = instantiate(info, portraitEnv);
+  model.rotation.y = -0.25;
+  scene.add(model);
+  const cam = new THREE.PerspectiveCamera(30, 240 / 300, 0.05, 20);
+  cam.position.set(0, TARGET_HEIGHT * 0.62, 3.1);
+  cam.lookAt(0, TARGET_HEIGHT * 0.5, 0);
+  r.render(scene, cam);
+  const url = r.domElement.toDataURL('image/png');
+  for (const m of model.userData.mats) m.dispose();
+  r.setSize(160, 160, false);
   return url;
 }
 

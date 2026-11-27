@@ -1,0 +1,203 @@
+/* 대기방 상태 칩을 방 카드 안에 넣을 때 */
+.rc-status .lobby-status { position: static; padding: 0; background: none; box-shadow: none; font-size: 12px; justify-content: flex-start; }
+
+/* =============================== 인게임 HUD =============================== */
+.hud-top { top: 16px; left: 18px; right: 18px; }
+
+/* 점수 / 생존 */
+.hud-score { gap: 14px; padding: 10px 20px 10px 14px; border-radius: 20px; }
+.hs-block { display: flex; align-items: center; gap: 8px; }
+.hs-ico { font-size: 34px; filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.12)); }
+.hud-score small { font-family: 'Fredoka', var(--font); font-size: 12px; color: var(--ink-3); letter-spacing: 1px; }
+.score-value { font-size: 30px; line-height: 1; color: #2c4a8c; min-width: 54px; }
+.alive-value { font-size: 30px; line-height: 1; color: #22a35a; }
+.divider { width: 2px; background: #e1e9f5; border-radius: 2px; }
+.map-chip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 999px;
+  max-width: 360px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.map-chip b { color: #2c4a8c; }
+.map-chip span { overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); }
+.net-chip { padding: 5px 12px; border-radius: 999px; }
+
+/* 타이머 */
+.hud-timer-wrap { position: absolute; left: 50%; top: 0; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; }
+.timer-tag {
+  position: relative;
+  z-index: 1;
+  margin-bottom: -10px;
+  padding: 3px 14px;
+  font-family: 'Fredoka', var(--font);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: #8a4b00;
+  background: linear-gradient(#ffe07a, #ffbd3a);
+  border: 2px solid #fff;
+  border-radius: 999px;
+  box-shadow: 0 2px 0 #d99400;
+}
+.hud-timer {
+  position: static;
+  transform: none;
+  gap: 10px;
+  padding: 10px 30px 8px 22px;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(180deg, #6fb6ff, #3d7ff2);
+  border: 3px solid #fff;
+  box-shadow: 0 6px 0 #2a5fc8, 0 12px 26px rgba(40, 90, 220, 0.35);
+}
+.clock-ico { font-size: 30px; color: #2a5fc8; }
+.timer-value { color: #fff; font-size: 36px; line-height: 1; text-shadow: 0 2px 0 rgba(20, 50, 150, 0.4); }
+.hud-timer.danger { background: linear-gradient(180deg, #ff8a8a, #f0475a); box-shadow: 0 6px 0 #c0283e, 0 12px 26px rgba(220, 40, 70, 0.35); }
+.hud-timer.danger .clock-ico { color: #c0283e; }
+.hud-timer.danger .timer-value { color: #fff; }
+
+/* 참가자 카드 */
+.cards { gap: 8px; }
+.char-card {
+  width: 250px;
+  gap: 10px;
+  padding: 6px 12px 6px 6px;
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  border-left: 2px solid rgba(255, 255, 255, 0.95);
+  border-radius: 18px;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--c) 92%, white), color-mix(in srgb, var(--c) 70%, white));
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--c) 70%, black), 0 8px 18px rgba(20, 60, 130, 0.2);
+  color: #fff;
+}
+.char-card .avatar { border-width: 2px; background-color: #fff; }
+.char-card.me { box-shadow: 0 0 0 3px #fff, 0 0 0 6px color-mix(in srgb, var(--c) 60%, white), 0 4px 0 color-mix(in srgb, var(--c) 70%, black); }
+.card-top { align-items: center; gap: 6px; }
+.card-name { font-size: 17px; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.18); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-label {
+  padding: 1px 7px;
+  font-size: 11px !important;
+  color: color-mix(in srgb, var(--c) 80%, black) !important;
+  background: rgba(255, 255, 255, 0.88);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.char-card.me .card-label { color: #8a4b00 !important; background: #ffe07a; }
+.char-card .status { margin-left: auto; padding: 1px 8px; font-size: 11px; color: #1c8a4a; background: rgba(255, 255, 255, 0.92); }
+.card-bottom { gap: 8px; margin-top: 2px; font-size: 12px; }
+.mini-stats { display: flex; gap: 8px; color: #fff; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.2); }
+.mini-stats span { display: inline-flex; align-items: center; gap: 1px; }
+.mini-ico { width: 18px; height: 18px; margin: -3px 0; }
+.mini-fx { font-size: 11px; white-space: nowrap; }
+.card-score { margin-left: auto; font-family: 'Fredoka', var(--font); font-size: 16px; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.2); }
+.char-card[data-state='dead'] { opacity: 0.6; filter: grayscale(1); }
+.trap-bar { height: 5px; }
+
+.pause-btn {
+  width: 50px;
+  height: 50px;
+  border: 3px solid #fff;
+  background: linear-gradient(#6fb6ff, #3d7ff2);
+  box-shadow: 0 4px 0 #2a5fc8, 0 8px 18px rgba(40, 90, 220, 0.3);
+}
+
+/* 하단 능력치 바 */
+.hud-bottom { bottom: 16px; left: 18px; right: 18px; }
+.player-stats {
+  gap: 14px;
+  padding: 10px 22px;
+  align-items: center;
+  border-radius: 22px;
+}
+.stat { gap: 8px; }
+.stat-img { width: 42px; height: 42px; margin: -4px -2px; }
+.stat-text { display: flex; flex-direction: column; line-height: 1.1; }
+.stat-text small { font-size: 12px; color: var(--ink-3); }
+.stat-val { font-family: 'Fredoka', var(--font); font-size: 19px; color: #26365e; }
+.stat .pips { gap: 3px; margin-top: 3px; }
+.pips i { width: 9px; height: 9px; border-width: 1px; }
+.stat-sep { width: 1px; align-self: stretch; margin: 4px 0; background: #dde6f3; }
+.stat-remote { opacity: 0.55; filter: grayscale(0.7); }
+.stat-remote.ready { opacity: 1; filter: none; }
+.remote-ico { width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; border-radius: 14px; background: #eef3fb; }
+.stat-remote.ready .remote-ico { background: linear-gradient(#fff3c4, #ffd76a); box-shadow: 0 0 0 2px #ffc531; animation: pulse 1.4s infinite; }
+.stat-remote small kbd { font-size: 10px; padding: 0 4px; min-width: 0; border-bottom-width: 2px; }
+.stat-remote .stat-name { font-size: 13px; color: #26365e; }
+.stat-remote .stat-val { font-size: 13px; color: #2fae5c; }
+.stat-remote:not(.ready) .stat-val { color: var(--ink-3); }
+.effect-chips { bottom: 84px; }
+
+/* 조작법 카드 (마우스를 올리면 전체 표시) */
+.controls-hint {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  font-size: 13px;
+  pointer-events: auto;
+  cursor: default;
+}
+.ch-head { display: flex; align-items: center; gap: 6px; color: #3d6fd8; }
+.ch-head .ico { font-size: 18px; }
+.ch-head b { color: #26365e; font-size: 14px; }
+.ch-q { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; color: #fff; background: #3d8bff; border-radius: 50%; }
+.ch-full { display: none; flex-direction: column; gap: 4px; }
+.controls-hint:hover .ch-full { display: flex; }
+.controls-hint:hover .ch-short { display: none; }
+.controls-hint kbd { font-size: 11px; }
+
+/* AI 인원 선택 (싱글 선택 화면) */
+.ai-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 2px; }
+.ai-row .sec-head { margin: 0; }
+.seg { display: inline-flex; padding: 3px; gap: 3px; border-radius: 999px; background: #e9f0fa; box-shadow: inset 0 1px 3px rgba(30, 70, 140, 0.15); }
+.seg-btn {
+  min-width: 58px;
+  padding: 5px 14px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  font-family: var(--font);
+  font-size: 15px;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.seg-btn:hover { background: rgba(255, 255, 255, 0.7); }
+.seg-btn.on { color: #fff; background: linear-gradient(#6fb6ff, #3d7ff2); box-shadow: 0 2px 0 #2a5fc8; }
+.ai-foes { display: flex; gap: 4px; }
+.ai-foes .avatar { border-width: 2px; transition: opacity 0.2s, filter 0.2s, transform 0.2s; }
+.ai-foes .avatar.off { opacity: 0.3; filter: grayscale(1); transform: scale(0.85); }
+.ai-hint { font-size: 13px; color: var(--ink-3); }
+.map-cards { grid-template-columns: repeat(5, 1fr); }
+.select-panel { width: min(980px, 96vw); }
+.select-panel .map-thumb-wrap { aspect-ratio: 2 / 1; }
+.select-panel .map-info b { font-size: 15px; }
+.select-panel .map-info small { -webkit-line-clamp: 1; }
+.select-panel .sel-sub { margin-bottom: 0; }
+.select-panel .sec-head { margin-top: 2px; }
+@media (max-width: 860px) {
+  .map-cards { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* 일시정지 / 결과 */
+.pause-screen .modal-panel, .result-panel, .modal .modal-panel { background: rgba(255, 255, 255, 0.93); }
+.pause-screen .modal-panel { min-width: 380px; }
+.pause-title { color: #2f6ee8 !important; }
+.rank-row { border-left-width: 6px; border-radius: 14px; background: #f4f8fe; }
+.rank-row.me { background: #fff8de; box-shadow: inset 0 0 0 2px #ffd26a; }
+
+@media (max-width: 1100px) {
+  .char-card { width: 200px; }
+  .mini-stats { display: flex; }
+  .mini-fx { display: none; }
+  .controls-hint { display: none; }
+  .player-stats { gap: 10px; padding: 8px 14px; }
+}

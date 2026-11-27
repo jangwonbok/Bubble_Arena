@@ -131,6 +131,44 @@ body.touch .touch-controls { display: block; }
 .tc-count { position: absolute; right: -6px; top: -6px; padding: 1px 6px; font-size: 12px; background: #ff5a6a; border: 2px solid #fff; border-radius: 999px; }
 .tc-btn.pressed { transform: translateY(4px) scale(0.95); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25); }
 
+/* 앱 설치 배너 (메인 화면, 모바일) */
+.install-banner {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px 7px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 2px solid #fff;
+  box-shadow: 0 6px 18px rgba(30, 70, 140, 0.22);
+  pointer-events: auto;
+  z-index: 6;
+  animation: popIn 0.3s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+.ib-ico { font-size: 20px; }
+.ib-text { flex: 1; font-size: 13px; line-height: 1.3; color: #26365e; }
+.ib-btn {
+  flex: none;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 999px;
+  font-family: var(--font);
+  font-size: 14px;
+  color: #fff;
+  background: linear-gradient(#6fb6ff, #3d7ff2);
+  box-shadow: 0 3px 0 #2a5fc8;
+  cursor: pointer;
+}
+.ib-close { flex: none; width: 28px; height: 28px; border: none; border-radius: 50%; background: #eef3fb; color: #7c8aa8; font-size: 13px; cursor: pointer; }
+.install-banner.hidden { display: none !important; }
+@media (max-height: 500px) and (orientation: landscape) {
+  .install-banner { padding: 4px 6px 4px 10px; border-radius: 12px; }
+  .ib-text { font-size: 12px; }
+  .ib-btn { padding: 4px 12px; font-size: 13px; }
+  .ib-close { width: 24px; height: 24px; }
+}
+
 /* 전체 화면 안내 (iPhone: 홈 화면에 추가) */
 .install-panel { max-width: 420px; align-items: stretch; }
 .install-lead { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }

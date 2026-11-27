@@ -16,7 +16,7 @@ import { CharacterModel } from '../characters/CharacterModel.js';
 import { loadModel, instantiate, renderPortrait, renderFigure, disposePortraitRenderer } from '../characters/ModelLibrary.js';
 import { Portraits, Figures, MapThumbs } from '../ui/dom.js';
 import { Device } from './Device.js';
-import { Fullscreen } from './Fullscreen.js';
+import { Fullscreen, setThemeColor } from './Fullscreen.js';
 import { BombView } from '../systems/views/BombView.js';
 import { EffectsView } from '../systems/views/EffectsView.js';
 import { ItemView } from '../systems/views/ItemView.js';
@@ -219,6 +219,7 @@ export class Game {
   applyMap(grid, def) {
     this.mapView.build(grid, def);
     this.sm.applyEnvironment(def.env);
+    setThemeColor(def.env.sky[0]); // 브라우저 바 색을 맵 하늘색에 맞춤
   }
 
   /** 메인 화면 / 맵 미리보기용 배경 */
@@ -258,8 +259,8 @@ export class Game {
   // ---------------- 싱글 / AI 연습전 ----------------
   startLocal({ mode = 'single', mapId = 'random', charId = 0, aiCount = 3 } = {}) {
     this.audio.unlock();
-    // 전에 전체 화면을 켰던 모바일 사용자는 경기 시작(버튼 터치) 때 자동으로 다시 전체 화면
-    if (Device.touch && Fullscreen.preferred) Fullscreen.enter();
+    // 모바일: 경기 시작(버튼 터치) 때 자동으로 전체 화면 (사용자가 직접 끈 경우 제외)
+    if (Device.touch) Fullscreen.autoEnter();
     aiCount = Math.max(1, Math.min(CHARACTER_DEFS.length - 1, aiCount | 0 || 3));
     this.lastLocal = { mode, mapId, charId, aiCount };
     this.mode = mode;

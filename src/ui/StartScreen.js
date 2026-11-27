@@ -3,6 +3,10 @@ import { icon } from './icons.js';
 import { topActions } from './Modals.js';
 import { CHARACTER_DEFS } from '../characters/characterDefs.js';
 import { MAPS } from '../maps/index.js';
+import { Device } from '../core/Device.js';
+import { Fullscreen, Install } from '../core/Fullscreen.js';
+
+const BANNER_KEY = 'bubbleArena.installBannerClosed';
 
 const VERSION = '2.0';
 
@@ -23,8 +27,27 @@ export class StartScreen {
     const go = (fn) => () => {
       game.audio.unlock();
       game.audio.play('click');
+      if (Device.touch) Fullscreen.autoEnter(); // 모바일: 모드를 고르는 순간 전체 화면
       fn();
     };
+
+    // 앱 설치 안내 배너 (모바일 + 아직 설치 앱으로 실행 중이 아닐 때)
+    this.bannerBtn = el('button', { class: 'ib-btn' });
+    this.banner = el('div', { class: 'install-banner hidden' }, [
+      el('span', { class: 'ib-ico', text: '📲' }),
+      el('span', { class: 'ib-text', text: '앱으로 설치하면 주소창 없이 전체 화면으로 즐길 수 있어요' }),
+      this.bannerBtn,
+      el('button', { class: 'ib-close', 'aria-label': '닫기', text: '✕', onclick: () => { localStorage.setItem(BANNER_KEY, '1'); this.syncBanner(); } }),
+    ]);
+    this.bannerBtn.addEventListener('click', async () => {
+      game.audio.unlock();
+      game.audio.play('click');
+      if (Install.canPrompt) await Install.prompt();
+      else game.ui.modals.open('install');
+      this.syncBanner();
+    });
+    Install.onChange(() => this.syncBanner());
+    Device.onChange(() => this.syncBanner());
 
     this.root = el('div', { class: 'screen start-screen' }, [
       el('div', { class: 'top-bar' }, [this.profile, topActions(game, ['fullscreen', 'settings', 'sound', 'help'])]),
@@ -35,6 +58,7 @@ export class StartScreen {
         el('p', { class: 'logo-sub', text: '물풍선으로 친구들을 가둬라! 최후의 1인이 되는 귀여운 아레나 배틀' }),
       ]),
       el('div', { class: 'mode-dock' }, [
+        this.banner, // 설치 안내는 모드 카드 묶음의 맨 윗줄 (다른 요소와 겹치지 않음)
         el('button', { class: 'mode-hero', onclick: go(() => game.ui.show('lobby', { mode: 'public' })) }, [
           el('span', { class: 'mh-badge', text: 'BEST' }),
           el('span', { class: 'mh-spark s1' }, [icon('sparkle')]),
@@ -64,7 +88,20 @@ export class StartScreen {
     ]);
   }
 
+  /**
+   * 설치 배너 표시 조건: 터치 기기 + 독립 실행 아님 + 닫지 않음 +
+   *  (Android 등 설치 가능 → '설치' 버튼) 또는 (iPhone 처럼 전체 화면 API 가 없음 → '방법 보기')
+   */
+  syncBanner() {
+    const closed = localStorage.getItem(BANNER_KEY) === '1';
+    const iosLike = Fullscreen.isIOS && !Fullscreen.supported;
+    const show = Device.touch && !Fullscreen.standalone && !Install.installed && !closed && (Install.canPrompt || iosLike);
+    this.banner.classList.toggle('hidden', !show);
+    this.bannerBtn.textContent = Install.canPrompt ? '설치' : '방법 보기';
+  }
+
   onShow() {
+    this.syncBanner();
     const r = this.game.records;
     const p = this.game.session.profile;
     const def = CHARACTER_DEFS[p.charId] || CHARACTER_DEFS[0];

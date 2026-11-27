@@ -1,4 +1,5 @@
 import { el } from './dom.js';
+import { Fullscreen } from '../core/Fullscreen.js';
 
 const DEAD_ZONE = 14; // px: 이 안에서는 정지
 const SWITCH_BIAS = 1.25; // 축 전환 히스테리시스 (대각선 근처에서 방향이 덜덜 바뀌지 않도록)
@@ -52,6 +53,8 @@ export class TouchControls {
     this.input.on('reset', () => this.release());
     // 길게 눌렀을 때 메뉴/선택/확대 방지
     this.root.addEventListener('contextmenu', (e) => e.preventDefault());
+    // 조작을 시작하는 첫 터치 때 전체 화면으로 (온라인처럼 버튼 없이 시작된 경기도 포함)
+    this.root.addEventListener('pointerdown', () => Fullscreen.autoEnter(), true);
   }
 
   bindStick() {

@@ -39,6 +39,8 @@
   아이템 획득 알림을 상단 작은 칩으로 (`HUD.itemNotice`, ×N 합치기·최대 2개)
 - 이후 배포: 모바일 전체 화면(`src/core/Fullscreen.js`, iPhone 은 홈 화면 추가 안내 + `public/manifest.webmanifest`·`public/icons/`),
   세로 화면 위아래 추적 카메라(`solveLookZ` 로 맵이 상단 HUD~조작 버튼 사이에 오도록), 가로 화면 좌우 데드존, 세로 터치 HUD 한 줄 배치
+- 이후 배포: 모바일 자동 전체 화면(`Fullscreen.autoEnter`, 사용자 제스처 때만 가능), 앱 설치 배너(`Install`, beforeinstallprompt),
+  서비스 워커 `public/sw.js`(캐시 없음, 설치 조건용 — 배포 빌드에서만 등록), 맵별 theme-color. iPhone 은 API 미지원 → 홈 화면 추가 안내
 
 ## 구조 요약
 - 공용 로직(서버와 공유, Three.js 없음): `src/core/MatchSimulation.js`, `src/systems/*`, `src/map/MapGrid.js`, `src/maps/*`, `src/characters/Character.js`, `src/net/protocol.js`
